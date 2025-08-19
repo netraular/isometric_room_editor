@@ -1,0 +1,22 @@
+{
+  "ads_711": {
+    "name": "Máquina de Slurpy",
+    "category": "Comercial",
+    "description": "Una máquina de bebidas refrescantes en varios sabores."
+  },
+  "ads_capri_arcade": {
+    "name": "Arcade Capri",
+    "category": "Juegos",
+    "description": "¡Horas de diversión retro!"
+  },
+  "anna_divider": {
+    "name": "Separador Anna",
+    "category": "Separadores",
+    "description": "Un elegante separador de ambientes."
+  },
+  "anna_sofa": {
+    "name": "Sofá Anna",
+    "category": "Asientos",
+    "description": "Un cómodo sofá para relajarse."
+  }
+}

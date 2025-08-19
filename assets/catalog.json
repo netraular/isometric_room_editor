@@ -1,0 +1,231 @@
+{
+  "categories": [
+    {
+      "name": "General & Core Furniture",
+      "description": "Standard, versatile furniture for any room design, covering basic necessities and classic, non-themed lines.",
+      "subcategories": [
+        {
+          "name": "Seating",
+          "items": [
+            {
+              "id": "anna_sofa_1",
+              "name": "Sof\u00e1 Anna",
+              "base_id": "anna_sofa",
+              "color_id": "1",
+              "icon_path": "icons/anna_sofa_1_icon.png"
+            }
+          ]
+        },
+        {
+          "name": "Surfaces",
+          "items": []
+        },
+        {
+          "name": "Beds & Rest",
+          "items": []
+        },
+        {
+          "name": "Storage & Display",
+          "items": []
+        },
+        {
+          "name": "Lighting",
+          "items": []
+        },
+        {
+          "name": "Core Lines",
+          "items": []
+        }
+      ]
+    },
+    {
+      "name": "Themed & Seasonal Collections",
+      "description": "Collections for specific events, holidays, or campaigns with a strong, consistent aesthetic.",
+      "subcategories": [
+        {
+          "name": "Seasonal Events",
+          "items": []
+        },
+        {
+          "name": "Cultural & Geographic",
+          "items": []
+        },
+        {
+          "name": "Fantasy & Sci-Fi",
+          "items": []
+        },
+        {
+          "name": "Hobby & Location-Based",
+          "items": []
+        },
+        {
+          "name": "Exclusive Memberships",
+          "items": []
+        }
+      ]
+    },
+    {
+      "name": "Room Architecture & Construction",
+      "description": "Structural elements and modular pieces to build the fundamental layout of a room.",
+      "subcategories": [
+        {
+          "name": "Walls, Floors & Carpets",
+          "items": []
+        },
+        {
+          "name": "Windows & Doors",
+          "items": []
+        },
+        {
+          "name": "Dividers & Structural",
+          "items": [
+            {
+              "id": "anna_divider_3",
+              "name": "Separador Anna",
+              "base_id": "anna_divider",
+              "color_id": "3",
+              "icon_path": "icons/anna_divider_3_icon.png"
+            }
+          ]
+        },
+        {
+          "name": "Builders Club (BC) Blocks",
+          "items": []
+        }
+      ]
+    },
+    {
+      "name": "Interactive & Game Systems",
+      "description": "Functional items to create games, automation, and interactive experiences.",
+      "subcategories": [
+        {
+          "name": "Wired Logic",
+          "items": []
+        },
+        {
+          "name": "Game Mechanics",
+          "items": []
+        },
+        {
+          "name": "Teleporters",
+          "items": []
+        },
+        {
+          "name": "Crafting & Enchanting",
+          "items": []
+        }
+      ]
+    },
+    {
+      "name": "Rares, LTDs & Valuables",
+      "description": "High-value, often limited items sought-after by collectors.",
+      "subcategories": [
+        {
+          "name": "Classic Rares & Thrones",
+          "items": []
+        },
+        {
+          "name": "Limited Edition Rares (LTDs)",
+          "items": []
+        },
+        {
+          "name": "Currency Furni",
+          "items": []
+        },
+        {
+          "name": "Trophies & Prizes",
+          "items": []
+        },
+        {
+          "name": "Collectibles",
+          "items": []
+        }
+      ]
+    },
+    {
+      "name": "Clothing & Accessories",
+      "description": "Wearable items that customize an avatar. These are stored in the wardrobe, not placed in a room.",
+      "subcategories": [
+        {
+          "name": "Wearable Items",
+          "items": []
+        }
+      ]
+    },
+    {
+      "name": "Pets & Animals",
+      "description": "Items related to pets and decorative, non-playable animals.",
+      "subcategories": [
+        {
+          "name": "Pet Accessories",
+          "items": []
+        },
+        {
+          "name": "Animal Figures",
+          "items": []
+        }
+      ]
+    },
+    {
+      "name": "Promotional & Sponsored (ADS)",
+      "description": "Furniture released as part of advertising campaigns and collaborations with external brands.",
+      "subcategories": [
+        {
+          "name": "Branded Items",
+          "items": [
+            {
+              "id": "ads_711_1",
+              "name": "M\u00e1quina de Slurpy",
+              "base_id": "ads_711",
+              "color_id": "1",
+              "icon_path": "icons/ads_711_1_icon.png"
+            },
+            {
+              "id": "ads_711_2",
+              "name": "M\u00e1quina de Slurpy",
+              "base_id": "ads_711",
+              "color_id": "2",
+              "icon_path": "icons/ads_711_2_icon.png"
+            },
+            {
+              "id": "ads_711_4",
+              "name": "M\u00e1quina de Slurpy",
+              "base_id": "ads_711",
+              "color_id": "4",
+              "icon_path": "icons/ads_711_4_icon.png"
+            },
+            {
+              "id": "ads_capri_arcade_0",
+              "name": "Arcade Capri",
+              "base_id": "ads_capri_arcade",
+              "color_id": "0",
+              "icon_path": "icons/ads_capri_arcade_icon.png"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "General Decor & Miscellaneous",
+      "description": "A catch-all for smaller, decorative items and unique tools that don't fit into a specific group.",
+      "subcategories": [
+        {
+          "name": "Plants & Nature",
+          "items": []
+        },
+        {
+          "name": "Wall Decor",
+          "items": []
+        },
+        {
+          "name": "Decorative Food & Drink",
+          "items": []
+        },
+        {
+          "name": "Special Effects & Tools",
+          "items": []
+        }
+      ]
+    }
+  ]
+}

@@ -1,6 +1,9 @@
+# src/data_manager.py
+
 import json
 import os
 from tkinter import filedialog, Tk
+import pygame
 
 class DataManager:
     def __init__(self, project_root):
@@ -9,6 +12,54 @@ class DataManager:
         self.root.withdraw()
         self.current_decoration_set_path = None
         self.current_structure_path = None
+        # --- CACHÉ PARA IMÁGENES Y DATOS DE DECORACIÓN ---
+        self.image_cache = {}
+        self.decoration_data_cache = {}
+
+    def load_catalog(self):
+        catalog_path = os.path.join(self.project_root, "assets", "catalog.json")
+        if not os.path.exists(catalog_path):
+            print("Error: catalog.json no encontrado. Ejecuta build_catalog.py primero.")
+            return {}
+        try:
+            with open(catalog_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error cargando el catálogo: {e}")
+            return {}
+
+    def load_decoration_data(self, base_id):
+        if base_id in self.decoration_data_cache:
+            return self.decoration_data_cache[base_id]
+            
+        deco_json_path = os.path.join(self.project_root, "assets", "decorations", base_id, "furni.json")
+        if not os.path.exists(deco_json_path):
+            print(f"Error: No se encontró furni.json para {base_id}")
+            return None
+        try:
+            with open(deco_json_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                self.decoration_data_cache[base_id] = data
+                return data
+        except Exception as e:
+            print(f"Error cargando datos de decoración para {base_id}: {e}")
+            return None
+            
+    def get_image(self, relative_path):
+        if relative_path in self.image_cache:
+            return self.image_cache[relative_path]
+        
+        full_path = os.path.join(self.project_root, "assets", relative_path)
+        if not os.path.exists(full_path):
+            # print(f"Error: no se encontró la imagen en {full_path}")
+            return None
+        try:
+            image = pygame.image.load(full_path).convert_alpha()
+            self.image_cache[relative_path] = image
+            return image
+        except Exception as e:
+            print(f"Error al cargar la imagen {full_path}: {e}")
+            return None
 
     def load_structure_only(self):
         initial_dir = os.path.join(self.project_root, "rooms", "structures")
@@ -41,8 +92,6 @@ class DataManager:
             with open(fp, 'r') as f:
                 file_data = json.load(f)
 
-            # --- LÓGICA INTELIGENTE PARA DETECTAR EL TIPO DE ARCHIVO ---
-            # Caso 1: El archivo es un DECORATION SET (contiene 'structure_id').
             if "structure_id" in file_data:
                 decoration_set_data = file_data
                 structure_id = decoration_set_data.get("structure_id")
@@ -64,7 +113,6 @@ class DataManager:
                 self.current_structure_path = structure_fp
                 return structure_data, decoration_set_data
 
-            # Caso 2: El archivo parece ser una ESTRUCTURA (contiene 'tiles' y 'dimensions').
             elif "tiles" in file_data and "dimensions" in file_data:
                 print("Loaded a structure file directly. Creating a new decoration set in memory.")
                 structure_data = file_data
@@ -79,7 +127,6 @@ class DataManager:
                 self.current_decoration_set_path = None
                 return structure_data, new_decoration_set
 
-            # Caso 3: El archivo no es un formato reconocido.
             else:
                 print(f"Error: The selected file '{os.path.basename(fp)}' is not a valid decoration set or structure file.")
                 return None, None
