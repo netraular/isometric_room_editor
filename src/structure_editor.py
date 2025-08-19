@@ -1,3 +1,5 @@
+# src/structure_editor.py
+
 import pygame
 import math
 from common.constants import *
@@ -16,10 +18,14 @@ class StructureEditor:
         self.hover_grid_pos = None
         self.hover_wall_edge = None
         
-        self.setup_ui()
+        # Se elimina la llamada a self.setup_ui() de aquí para evitar un error de inicialización.
+        # La UI se configura a través de App.update_layout(), que se llama después de
+        # que todos los atributos de App (como anchor_offset_input_x) hayan sido creados.
+        self.buttons = {} # Inicializar como un diccionario vacío es una buena práctica.
 
     def setup_ui(self):
-        # La UI del panel derecho ahora empieza debajo de los inputs de anchor
+        # La UI del panel derecho ahora empieza debajo de los inputs de anchor.
+        # Esta función es llamada por App.update_layout() y en ese momento, estos atributos ya existen.
         center_btn_y = self.app.anchor_offset_input_x.rect.bottom + 20
         margin = 15
         
@@ -103,6 +109,8 @@ class StructureEditor:
             if p1 and p2: pygame.draw.line(surface, COLOR_HOVER_BORDER, p1, p2, 4)
 
     def draw_ui_on_panel(self, screen):
+        # En el modo de estructura, los inputs de ancla y los botones del modo se dibujan.
+        # Los inputs de ancla se dibujan directamente desde app.py
         for name, btn in self.buttons.items():
             is_active = (name == 'mode_tile' and self.edit_mode == MODE_TILES) or \
                         (name == 'mode_wall' and self.edit_mode == MODE_WALLS)

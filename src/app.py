@@ -1,3 +1,5 @@
+# src/app.py
+
 import pygame
 import json
 import sys
@@ -26,11 +28,13 @@ class App:
         self.is_panning, self.pan_start_pos = False, (0, 0)
         self.camera_offset, self.save_confirmation_timer = [0, 0], 0
         
-        self.update_layout()
         self.main_mode = EDITOR_MODE_STRUCTURE
+        # --- Importante: Inicializar los editores ANTES de llamar a update_layout ---
         self.structure_editor = StructureEditor(self)
         self.decoration_editor = DecorationEditor(self)
         self.active_editor = self.structure_editor
+        
+        self.update_layout() # Llama al layout una vez que todo está inicializado
         self.load_initial_room()
 
     def update_layout(self):
@@ -38,9 +42,14 @@ class App:
         btn_y = 5
         btn_height = 30
         
+        # --- LÍNEAS MODIFICADAS: PANEL DERECHO DINÁMICO ---
+        # El panel derecho ahora ocupa 1/3 del ancho de la ventana.
+        right_panel_width = self.win_width // 3 
         self.top_bar_rect = pygame.Rect(0, 0, self.win_width, TOP_BAR_HEIGHT)
-        self.right_panel_rect = pygame.Rect(self.win_width - RIGHT_PANEL_WIDTH, TOP_BAR_HEIGHT, RIGHT_PANEL_WIDTH, self.win_height - TOP_BAR_HEIGHT)
-        self.editor_rect = pygame.Rect(0, TOP_BAR_HEIGHT, self.win_width - RIGHT_PANEL_WIDTH, self.win_height - TOP_BAR_HEIGHT)
+        self.right_panel_rect = pygame.Rect(self.win_width - right_panel_width, TOP_BAR_HEIGHT, right_panel_width, self.win_height - TOP_BAR_HEIGHT)
+        self.editor_rect = pygame.Rect(0, TOP_BAR_HEIGHT, self.win_width - right_panel_width, self.win_height - TOP_BAR_HEIGHT)
+        # --- FIN DE LÍNEAS MODIFICADAS ---
+        
         self.editor_surface = pygame.Surface(self.editor_rect.size, pygame.SRCALPHA)
         
         self.main_buttons = {
@@ -56,19 +65,18 @@ class App:
         btn_new = Button(btn_load.rect.left - 10 - 60, btn_file_y, 60, btn_file_h, "New", self.font_ui)
         self.file_buttons = {"new": btn_new, "load": btn_load, "save": btn_save, "save_as": btn_save_as}
 
-        # --- REPOSICIONAMIENTO DE ELEMENTOS ---
-        # 1. Preview ahora es un overlay en la vista de edición
         self.preview_rect = pygame.Rect(0, 0, PREVIEW_SIZE[0], PREVIEW_SIZE[1])
         self.preview_rect.topright = (self.editor_rect.right - margin, self.editor_rect.top + margin)
         self.preview_surface = pygame.Surface(PREVIEW_SIZE)
 
-        # 2. Inputs de Anchor se posicionan al inicio del panel derecho
         input_y = self.right_panel_rect.y + margin + 20
         self.anchor_offset_input_x = TextInputBox(self.right_panel_rect.left + margin, input_y, 100, 25, self.font_ui)
         self.anchor_offset_input_y = TextInputBox(self.right_panel_rect.right - 100 - margin, input_y, 100, 25, self.font_ui)
         self.input_boxes = [self.anchor_offset_input_x, self.anchor_offset_input_y]
         
         if hasattr(self, 'structure_editor'): self.structure_editor.setup_ui()
+        # --- LÍNEA AÑADIDA: Notificar al decoration_editor que el layout ha cambiado ---
+        if hasattr(self, 'decoration_editor'): self.decoration_editor.update_layout()
 
     def load_initial_room(self):
         s_path = os.path.join(self.project_root, "rooms", "structures", "new_room_01.json")
@@ -109,7 +117,10 @@ class App:
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT: return False
-            if event.type == pygame.VIDEORESIZE: self.win_width, self.win_height = event.size; self.screen = pygame.display.set_mode((self.win_width, self.win_height), pygame.RESIZABLE); self.update_layout()
+            if event.type == pygame.VIDEORESIZE: 
+                self.win_width, self.win_height = event.size
+                self.screen = pygame.display.set_mode((self.win_width, self.win_height), pygame.RESIZABLE)
+                self.update_layout() # Esencial para que el layout se adapte
             
             if self.main_mode == EDITOR_MODE_STRUCTURE:
                 for box in self.input_boxes:
@@ -136,14 +147,11 @@ class App:
         pygame.draw.rect(self.screen, COLOR_TOP_BAR, self.top_bar_rect)
         pygame.draw.rect(self.screen, COLOR_PANEL_BG, self.right_panel_rect)
         
-        # 1. Dibujar el contenido principal del editor
         self.draw_room_on_surface(self.editor_surface, self.camera_offset, True)
         self.screen.blit(self.editor_surface, self.editor_rect)
         pygame.draw.rect(self.screen, COLOR_BORDER, self.editor_rect, 1)
         pygame.draw.rect(self.screen, COLOR_BORDER, self.right_panel_rect, 1)
 
-        # 2. Dibujar overlays sobre la vista del editor
-        # Preview
         self.draw_room_on_surface(self.preview_surface, self.calculate_preview_offset(PREVIEW_SIZE), False)
         self.screen.blit(self.preview_surface, self.preview_rect)
         pygame.draw.rect(self.screen, COLOR_BORDER, self.preview_rect, 1)
@@ -152,23 +160,18 @@ class App:
         title_rect = title_surf.get_rect(topright=(self.preview_rect.right, self.preview_rect.bottom + 5))
         self.screen.blit(title_surf, title_rect)
 
-        # Info Box de Controles
         self.draw_info_box(self.active_editor.get_info_lines())
 
-        # 3. Dibujar UI de la barra superior y panel derecho
         for name, btn in self.main_buttons.items(): btn.draw(self.screen, (name == 'structure' and self.main_mode == EDITOR_MODE_STRUCTURE) or (name == 'decorations' and self.main_mode == EDITOR_MODE_DECORATIONS))
         for btn in self.file_buttons.values(): btn.draw(self.screen)
         
-        # Inputs de Anchor (solo en modo estructura)
         if self.main_mode == EDITOR_MODE_STRUCTURE:
             self.screen.blit(self.font_info.render("Offset X:", True, COLOR_INFO_TEXT), (self.anchor_offset_input_x.rect.left, self.anchor_offset_input_x.rect.top - 15))
             self.screen.blit(self.font_info.render("Offset Y:", True, COLOR_INFO_TEXT), (self.anchor_offset_input_y.rect.left, self.anchor_offset_input_y.rect.top - 15))
             for box in self.input_boxes: box.update(); box.draw(self.screen)
         
-        # UI específica del modo en el panel derecho
         self.active_editor.draw_ui_on_panel(self.screen)
         
-        # 4. Dibujar pop-ups (confirmación de guardado)
         self.draw_save_confirmation()
         pygame.display.flip()
 
@@ -233,7 +236,6 @@ class App:
         for gx, gy in sorted_tiles:
             screen_pos = grid_to_screen(gx, gy, offset)
             self.draw_tile_shape(surf, screen_pos, self.tiles[(gx, gy)], COLOR_TILE, COLOR_TILE_BORDER)
-        # Draw walls after all tiles to prevent them from being covered
         for gx, gy in sorted_tiles:
             for pos, edge in self.walls:
                 if pos == (gx, gy):
@@ -263,7 +265,6 @@ class App:
         rendered_lines = [self.font_info.render(line, True, COLOR_INFO_TEXT) for line in info_lines]
         box_w = max(line.get_width() for line in rendered_lines) + padding * 2; box_h = len(info_lines) * line_height + padding * 2
         
-        # --- POSICIÓN RELATIVA AL EDITOR_RECT ---
         box_rect = pygame.Rect(0, 0, box_w, box_h)
         box_rect.bottomright = (self.editor_rect.right - margin, self.editor_rect.bottom - margin)
         
@@ -326,10 +327,8 @@ class App:
         p1, p2 = edge_points.get(edge, (None, None))
         if p1 and p2:
             wall_points = [p1, p2, (p2[0], p2[1] - WALL_HEIGHT), (p1[0], p1[1] - WALL_HEIGHT)]
-            # --- LÍNEAS CORREGIDAS ---
             pygame.draw.polygon(surf, COLOR_WALL, wall_points)
             pygame.draw.polygon(surf, COLOR_WALL_BORDER, wall_points, 2)
-            # --- FIN DE LÍNEAS CORREGIDAS ---
 
     def calculate_preview_offset(self, surface_size):
         if self.structure_data and "renderAnchor" in self.structure_data:
