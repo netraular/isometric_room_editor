@@ -36,7 +36,7 @@ COLOR_HOVER_BORDER = (255, 255, 0)
 COLOR_WALL = (200, 120, 50)
 COLOR_WALL_BORDER = (140, 80, 30)
 COLOR_PREVIEW_OUTLINE = (220, 220, 220)
-COLOR_SAVE_CONFIRM_BG = (50, 60, 70, 220) # NEW: Save confirmation bg color
+COLOR_SAVE_CONFIRM_BG = (50, 60, 70, 220)
 
 # --- Tile Types ---
 TILE_TYPE_FULL = 1; TILE_TYPE_CORNER_NO_TL = 2; TILE_TYPE_CORNER_NO_TR = 3
@@ -48,8 +48,8 @@ MODE_TILES = 0; MODE_WALLS = 1
 
 # --- Wall Edges ---
 EDGE_NE = "ne"; EDGE_SE = "se"; EDGE_SW = "sw"; EDGE_NW = "nw"
-EDGE_DIAG_SW_NE = "diag_sw_ne" # Diagonal from bottom to top
-EDGE_DIAG_NW_SE = "diag_nw_se" # Diagonal from left to right
+EDGE_DIAG_SW_NE = "diag_sw_ne"
+EDGE_DIAG_NW_SE = "diag_nw_se"
 
 # --- MAPPING TILE TYPES TO THEIR VALID EDGES ---
 TILE_TYPE_EDGES = {
@@ -114,7 +114,7 @@ class RoomEditor:
         self.hover_grid_pos = None; self.hover_wall_edge = None
         self.tiles = {}; self.walls = set()
         self.edit_mode = MODE_TILES
-        self.save_confirmation_timer = 0 # NEW: Timer for save confirmation
+        self.save_confirmation_timer = 0
         self.update_layout()
         self.create_new_room()
 
@@ -174,6 +174,7 @@ class RoomEditor:
     def load_room(self):
         initial_dir = os.path.join(os.getcwd(), "rooms"); os.makedirs(initial_dir, exist_ok=True)
         fp = filedialog.askopenfilename(parent=self.root, initialdir=initial_dir, title="Load Room", filetypes=(("JSON files", "*.json"),))
+        self.root.update() # Force Tkinter to process events and release focus
         if not fp: return
         try:
             with open(fp, 'r') as f: self.room_data = json.load(f)
@@ -186,6 +187,7 @@ class RoomEditor:
         if save_as or not fp:
             initial_dir = os.path.join(os.getcwd(), "rooms"); os.makedirs(initial_dir, exist_ok=True)
             fp = filedialog.asksaveasfilename(parent=self.root, initialdir=initial_dir, title="Save Room As", defaultextension=".json", filetypes=(("JSON files", "*.json"),))
+            self.root.update() # Force Tkinter to process events and release focus
         if not fp: return
 
         if not self.tiles: min_x, min_y, max_x, max_y = 0, 0, 0, 0
@@ -197,7 +199,7 @@ class RoomEditor:
         try:
             with open(fp, 'w') as f: json.dump(dts, f, indent=2)
             self.current_filepath = fp; pygame.display.set_caption(f"Editor - {os.path.basename(fp)}")
-            self.save_confirmation_timer = 120 # NEW: Set timer on successful save
+            self.save_confirmation_timer = 120
         except Exception as e: print(f"Error saving file: {e}")
 
     def point_to_line_segment_dist(self, p, a, b):
@@ -211,12 +213,10 @@ class RoomEditor:
 
     def get_hovered_edge(self, grid_pos, screen_mouse_pos):
         if grid_pos not in self.tiles: return None
-
         tile_type = self.tiles[grid_pos]
         tile_screen_pos = self.grid_to_screen(*grid_pos, self.camera_offset)
         p = self.get_tile_points(tile_screen_pos)
         gx, gy = grid_pos
-
         edge_definitions = {
             EDGE_NE: {'seg': (p['top'], p['right']), 'neighbor': (gx, gy - 1)},
             EDGE_SE: {'seg': (p['right'], p['bottom']), 'neighbor': (gx + 1, gy)},
@@ -225,12 +225,8 @@ class RoomEditor:
             EDGE_DIAG_SW_NE: {'seg': (p['bottom'], p['top']), 'neighbor': None},
             EDGE_DIAG_NW_SE: {'seg': (p['left'], p['right']), 'neighbor': None},
         }
-        
-        best_edge = None
-        min_dist = 15
-
+        best_edge = None; min_dist = 15
         valid_edges_for_shape = TILE_TYPE_EDGES.get(tile_type, [])
-
         for edge_name in valid_edges_for_shape:
             data = edge_definitions[edge_name]
             is_valid_to_place = (data['neighbor'] is None) or (data['neighbor'] not in self.tiles)
@@ -422,7 +418,6 @@ class RoomEditor:
         pygame.draw.rect(self.screen, COLOR_EDITOR_BG, box_rect, border_radius=5); pygame.draw.rect(self.screen, COLOR_BORDER, box_rect, 1, border_radius=5)
         for i, line_surf in enumerate(rendered_lines): self.screen.blit(line_surf, (box_rect.left + padding, box_rect.top + padding + i * line_height))
         
-        # NEW: Draw save confirmation message
         if self.save_confirmation_timer > 0:
             self.save_confirmation_timer -= 1
             save_text_surf = self.font_title.render("File Saved!", True, COLOR_TEXT)
