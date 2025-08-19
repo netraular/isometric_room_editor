@@ -2,8 +2,7 @@
 
 A simple 2D isometric room editor created with Python and Pygame. This tool allows you to visually design room layouts using a tile-based system and export them as JSON files, which can then be easily loaded into a game engine.
 
- 
-*(Example screenshot of the editor interface)*
+![Screenshot of the Isometric Room Editor interface](img/editor_screenshot.png)
 
 ## Features
 
