@@ -19,14 +19,18 @@ class StructureEditor:
         self.setup_ui()
 
     def setup_ui(self):
-        center_btn_y = self.app.anchor_offset_input_x.rect.bottom + 5
+        # La UI del panel derecho ahora empieza debajo de los inputs de anchor
+        center_btn_y = self.app.anchor_offset_input_x.rect.bottom + 20
+        margin = 15
+        
         self.buttons = {
-            "center_anchor": Button(self.app.preview_rect.centerx - 60, center_btn_y, 120, 22, "Center Anchor", self.font_ui)
+            "center_anchor": Button(self.app.right_panel_rect.centerx - 60, center_btn_y, 120, 22, "Center Anchor", self.font_ui)
         }
+        
         mode_btn_y = self.buttons["center_anchor"].rect.bottom + 20
         self.buttons.update({
-            "mode_tile": Button(self.app.preview_rect.left, mode_btn_y, 100, 55, "", self.font_ui),
-            "mode_wall": Button(self.app.preview_rect.right - 100, mode_btn_y, 100, 55, "", self.font_ui)
+            "mode_tile": Button(self.app.right_panel_rect.left + margin, mode_btn_y, 100, 55, "", self.font_ui),
+            "mode_wall": Button(self.app.right_panel_rect.right - 100 - margin, mode_btn_y, 100, 55, "", self.font_ui)
         })
     
     def handle_events(self, event, mouse_pos, local_mouse_pos, keys):
@@ -110,8 +114,12 @@ class StructureEditor:
                 ts = self.font_ui.render(text_str, True, COLOR_TEXT)
                 tr = ts.get_rect(centerx=btn.rect.centerx, bottom=btn.rect.bottom - 8)
                 screen.blit(ts, tr)
-        info_lines_mode = ["[Click] Paint Tile", "[Drag] Paint/Erase", "[Alt+Click] Cycle Corner"] if self.edit_mode == MODE_TILES else ["[Click Edge] Toggle Wall"]
-        self.app.draw_info_box(info_lines_mode)
+
+    def get_info_lines(self):
+        if self.edit_mode == MODE_TILES:
+            return ["[Click] Paint Tile", "[Drag] Paint/Erase", "[Alt+Click] Cycle Corner"]
+        else: # MODE_WALLS
+            return ["[Click Edge] Toggle Wall"]
     
     def point_to_line_segment_dist(self, p, a, b):
         px, py = p; ax, ay = a; bx, by = b; line_mag_sq = (bx - ax)**2 + (by - ay)**2
