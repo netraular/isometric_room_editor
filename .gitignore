@@ -1,2 +1,5 @@
-rooms/
-.vscode/
+rooms
+.vscode
+__pycache__
+rooms
+src\common\__pycache__
