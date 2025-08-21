@@ -25,6 +25,9 @@ class App:
 
         self.structure_data, self.decoration_set_data = None, None
         self.tiles, self.walls, self.placed_decorations = {}, set(), []
+        # --- NUEVO: Set para un seguimiento rápido de las casillas ocupadas ---
+        self.occupied_tiles = set()
+        
         self.is_panning, self.pan_start_pos = False, (0, 0)
         self.camera_offset, self.save_confirmation_timer = [0, 0], 0
         
@@ -65,12 +68,10 @@ class App:
         self.preview_rect.topright = (self.editor_rect.right - margin, self.editor_rect.top + margin)
         self.preview_surface = pygame.Surface(PREVIEW_SIZE)
         
-        # --- INICIO: NUEVA VISTA PREVIA DEL ÍTEM ---
         item_preview_size = (120, 120)
         self.item_preview_rect = pygame.Rect(0, 0, item_preview_size[0], item_preview_size[1])
         self.item_preview_rect.topright = (self.preview_rect.right, self.preview_rect.bottom + 40)
         self.item_preview_surface = pygame.Surface(item_preview_size, pygame.SRCALPHA)
-        # --- FIN: NUEVA VISTA PREVIA DEL ÍTEM ---
 
         input_y = self.right_panel_rect.y + margin + 20
         self.anchor_offset_input_x = TextInputBox(self.right_panel_rect.left + margin, input_y, 100, 25, self.font_ui, input_type='numeric')
@@ -109,6 +110,12 @@ class App:
         for wall_data in self.structure_data.get('walls', []):
             self.walls.add((tuple(wall_data['grid_pos']), wall_data['edge']))
         self.placed_decorations = self.decoration_set_data.get("decorations", [])
+        
+        # --- MODIFICADO: Rellenar el set de casillas ocupadas ---
+        self.occupied_tiles.clear()
+        for deco in self.placed_decorations:
+            # Aseguramos que la posición se guarda como una tupla
+            self.occupied_tiles.add(tuple(deco.get("grid_pos")))
 
     def handle_events(self):
         mouse_pos = pygame.mouse.get_pos()
@@ -154,7 +161,6 @@ class App:
         pygame.draw.rect(self.screen, COLOR_BORDER, self.editor_rect, 1)
         pygame.draw.rect(self.screen, COLOR_BORDER, self.right_panel_rect, 1)
 
-        # Previsualización de la Sala
         self.draw_room_on_surface(self.preview_surface, self.calculate_preview_offset(PREVIEW_SIZE), False)
         self.screen.blit(self.preview_surface, self.preview_rect)
         pygame.draw.rect(self.screen, COLOR_BORDER, self.preview_rect, 1)
@@ -162,10 +168,8 @@ class App:
         title_rect = title_surf.get_rect(topright=(self.preview_rect.right, self.preview_rect.bottom + 5))
         self.screen.blit(title_surf, title_rect)
 
-        # --- INICIO: DIBUJAR NUEVA VISTA PREVIA DEL ÍTEM ---
         if self.main_mode == EDITOR_MODE_DECORATIONS:
             self.draw_item_preview()
-        # --- FIN: DIBUJAR NUEVA VISTA PREVIA DEL ÍTEM ---
 
         self.draw_info_box(self.active_editor.get_info_lines())
 
@@ -182,14 +186,15 @@ class App:
         self.draw_save_confirmation()
         pygame.display.flip()
 
-    # --- INICIO: NUEVA FUNCIÓN PARA DIBUJAR LA VISTA PREVIA DEL ÍTEM ---
     def draw_item_preview(self):
         """Dibuja el panel de vista previa para el objeto de decoración seleccionado."""
-        self.item_preview_surface.fill(COLOR_EDITOR_BG)
+        # --- CAMBIO: Se dibuja el fondo y la rejilla ---
+        self.item_preview_surface.fill(COLOR_TILE)
+        item_preview_offset = (self.item_preview_rect.w / 2, self.item_preview_rect.h / 2)
+        self.draw_iso_grid_on_surface(self.item_preview_surface, self.item_preview_rect, item_preview_offset)
         
         item_image = self.decoration_editor.get_selected_item_image()
         if item_image:
-            # Escalar la imagen si es más grande que el panel, manteniendo la proporción
             img_w, img_h = item_image.get_size()
             box_w, box_h = self.item_preview_rect.size
             if img_w > box_w or img_h > box_h:
@@ -197,7 +202,6 @@ class App:
                 new_size = (int(img_w * scale), int(img_h * scale))
                 item_image = pygame.transform.scale(item_image, new_size)
 
-            # Centrar y blitear la imagen en la superficie
             img_rect = item_image.get_rect(center=self.item_preview_surface.get_rect().center)
             self.item_preview_surface.blit(item_image, img_rect)
         
@@ -207,7 +211,6 @@ class App:
         title_surf = self.font_title.render("Item Preview", True, COLOR_TITLE_TEXT)
         title_rect = title_surf.get_rect(topright=(self.item_preview_rect.right, self.item_preview_rect.bottom + 5))
         self.screen.blit(title_surf, title_rect)
-    # --- FIN: NUEVA FUNCIÓN ---
 
     def run(self):
         running = True
@@ -261,7 +264,7 @@ class App:
         surf.fill(COLOR_EDITOR_BG if is_editor else COLOR_PREVIEW_BG)
         
         if is_editor:
-            self.draw_grid(surf)
+            self.draw_iso_grid_on_surface(surf, self.editor_rect, offset)
 
         if not self.structure_data: return
         
@@ -281,7 +284,7 @@ class App:
                     self.draw_wall(surf, screen_pos, edge)
 
         if is_editor:
-            self.active_editor.draw_on_editor(surf) # Movido aquí para dibujar decoraciones sobre los tiles/paredes
+            self.active_editor.draw_on_editor(surf)
             anchor_pos = (self.structure_data["renderAnchor"]["x"] + offset[0], self.structure_data["renderAnchor"]["y"] + offset[1])
             pygame.draw.circle(surf, COLOR_ANCHOR, anchor_pos, 5); pygame.draw.line(surf, COLOR_ANCHOR, (anchor_pos[0] - 8, anchor_pos[1]), (anchor_pos[0] + 8, anchor_pos[1]), 1); pygame.draw.line(surf, COLOR_ANCHOR, (anchor_pos[0], anchor_pos[1] - 8), (anchor_pos[0], anchor_pos[1] + 8), 1)
             ax, ay = self.structure_data["renderAnchor"]["x"], self.structure_data["renderAnchor"]["y"]
@@ -289,14 +292,15 @@ class App:
             preview_bounds_rect = pygame.Rect((ax - pw / 2) + offset[0], (ay - ph / 2) + offset[1], pw, ph)
             pygame.draw.rect(surf, COLOR_PREVIEW_OUTLINE, preview_bounds_rect, 1)
 
-    def draw_grid(self, surf):
-        if not self.editor_rect.w or not self.editor_rect.h: return
+    def draw_iso_grid_on_surface(self, surface, view_rect, offset):
+        """Dibuja una sutil rejilla isométrica en una superficie dada."""
+        if not view_rect.w or not view_rect.h: return
 
         corners_grid = [
-            screen_to_grid(0, 0, self.camera_offset),
-            screen_to_grid(self.editor_rect.w, 0, self.camera_offset),
-            screen_to_grid(self.editor_rect.w, self.editor_rect.h, self.camera_offset),
-            screen_to_grid(0, self.editor_rect.h, self.camera_offset)
+            screen_to_grid(0, 0, offset),
+            screen_to_grid(view_rect.w, 0, offset),
+            screen_to_grid(view_rect.w, view_rect.h, offset),
+            screen_to_grid(0, view_rect.h, offset)
         ]
         
         min_gx = min(c[0] for c in corners_grid) - 1
@@ -306,10 +310,10 @@ class App:
         
         for gy in range(min_gy, max_gy):
             for gx in range(min_gx, max_gx):
-                screen_pos = grid_to_screen(gx, gy, self.camera_offset)
+                screen_pos = grid_to_screen(gx, gy, offset)
                 p = self.get_tile_points(screen_pos)
                 points = [p['top'], p['right'], p['bottom'], p['left']]
-                pygame.draw.polygon(surf, COLOR_GRID, points, 1)
+                pygame.draw.polygon(surface, COLOR_GRID, points, 1)
 
     def center_camera_on_room(self):
         if not self.editor_rect.w or not self.editor_rect.h: return

@@ -9,7 +9,6 @@ from common.utils import grid_to_screen, screen_to_grid
 
 class DecorationEditor:
     SCROLL_SPEED = 30
-    # Mapea la rotación del editor (0-3) a la dirección del sprite (0,2,4,6).
     ROTATION_MAP = [2, 4, 6, 0]
 
     def __init__(self, app_ref):
@@ -19,29 +18,24 @@ class DecorationEditor:
         self.font_desc = pygame.font.SysFont("Arial", 12)
         self.catalog_data = self.app.data_manager.load_catalog()
 
-        # --- ESTADO DE LA UI ---
         self.open_main_cat_indices = set()
         self.open_sub_cat_indices = set()
         self.selected_deco_item = None
         self.clickable_elements = []
 
-        # --- ESTADO DE SCROLL ---
         self.scroll_y = 0
         self.content_height = 0
         self.is_scrolling_with_thumb = False
         self.scroll_start_y = 0
         self.scroll_start_scroll_y = 0
 
-        # --- ESTADO DE BÚSQUEDA ---
         self.active_search_term = "" 
         self.search_input = None
         self.search_button = None
 
-        # --- ESTADO DEL EDITOR (GHOST) ---
         self.ghost_pos = (0, 0)
         self.ghost_rotation = 0
 
-        # --- RECTS Y SURFACES ---
         self.panel_rect = pygame.Rect(0, 0, 0, 0)
         self.content_surface = None
         self.scrollbar_track_rect = None
@@ -87,50 +81,92 @@ class DecorationEditor:
             self.perform_search()
             self.search_input.active = False
 
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if self.scrollbar_thumb_rect and self.scrollbar_thumb_rect.collidepoint(mouse_pos):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1 and self.scrollbar_thumb_rect and self.scrollbar_thumb_rect.collidepoint(mouse_pos):
                 self.is_scrolling_with_thumb = True
                 self.scroll_start_y = mouse_pos[1]
                 self.scroll_start_scroll_y = self.scroll_y
-        if event.type == pygame.MOUSEBUTTONUP and event.button == 1: self.is_scrolling_with_thumb = False
-        if event.type == pygame.MOUSEMOTION and self.is_scrolling_with_thumb:
-            delta_y = mouse_pos[1] - self.scroll_start_y
-            scrollable_px_range = self.scrollbar_track_rect.height - self.scrollbar_thumb_rect.height
-            scrollable_content_range = self.content_height - self.panel_rect.height
-            if scrollable_px_range > 0:
-                ratio = scrollable_content_range / scrollable_px_range
-                self.scroll_y = self.scroll_start_scroll_y + delta_y * ratio
+            
+            if self.panel_rect.collidepoint(mouse_pos):
+                if event.button == 4: self.scroll_y -= self.SCROLL_SPEED
+                elif event.button == 5: self.scroll_y += self.SCROLL_SPEED
                 self.clamp_scroll()
 
-        if self.panel_rect.collidepoint(mouse_pos) and event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 4: self.scroll_y -= self.SCROLL_SPEED
-            elif event.button == 5: self.scroll_y += self.SCROLL_SPEED
-            self.clamp_scroll()
+            if event.button == 1:
+                is_on_content = self.panel_rect.collidepoint(mouse_pos) and \
+                                not self.scrollbar_track_rect.collidepoint(mouse_pos) and \
+                                not self.search_input.rect.collidepoint(mouse_pos) and \
+                                not self.search_button.rect.collidepoint(mouse_pos)
+                if is_on_content:
+                    self.handle_panel_click(mouse_pos)
+                elif self.selected_deco_item and self.app.editor_rect.collidepoint(mouse_pos):
+                    self.place_decoration(self.ghost_pos)
+            
+            if event.button == 3 and self.app.editor_rect.collidepoint(mouse_pos):
+                clicked_grid_pos = screen_to_grid(local_mouse_pos[0], local_mouse_pos[1], self.app.camera_offset)
+                self.delete_decoration_at(clicked_grid_pos)
 
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            is_on_content = self.panel_rect.collidepoint(mouse_pos) and \
-                            not self.scrollbar_track_rect.collidepoint(mouse_pos) and \
-                            not self.search_input.rect.collidepoint(mouse_pos) and \
-                            not self.search_button.rect.collidepoint(mouse_pos)
-            if is_on_content:
-                self.handle_panel_click(mouse_pos)
-            elif self.selected_deco_item and self.app.editor_rect.collidepoint(mouse_pos):
-                self.place_decoration(self.ghost_pos)
-        
-        if self.selected_deco_item and self.app.editor_rect.collidepoint(mouse_pos):
-            self.ghost_pos = screen_to_grid(local_mouse_pos[0], local_mouse_pos[1], self.app.camera_offset)
+        if event.type == pygame.MOUSEBUTTONUP and event.button == 1: self.is_scrolling_with_thumb = False
+        if event.type == pygame.MOUSEMOTION:
+            if self.is_scrolling_with_thumb:
+                delta_y = mouse_pos[1] - self.scroll_start_y
+                scrollable_px_range = self.scrollbar_track_rect.height - self.scrollbar_thumb_rect.height
+                scrollable_content_range = self.content_height - self.panel_rect.height
+                if scrollable_px_range > 0:
+                    ratio = scrollable_content_range / scrollable_px_range
+                    self.scroll_y = self.scroll_start_scroll_y + delta_y * ratio
+                    self.clamp_scroll()
+            
+            if self.selected_deco_item and self.app.editor_rect.collidepoint(mouse_pos):
+                self.ghost_pos = screen_to_grid(local_mouse_pos[0], local_mouse_pos[1], self.app.camera_offset)
         
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
-                print("[LOG] Objeto deseleccionado con ESC.")
                 self.selected_deco_item = None
             elif event.key == pygame.K_r and self.selected_deco_item:
-                self.ghost_rotation = (self.ghost_rotation + 1) % 4
-                print(f"[LOG] Fantasma rotado. Nuevo índice de rotación: {self.ghost_rotation} (Dirección de sprite: {self.ROTATION_MAP[self.ghost_rotation]})")
+                self.rotate_ghost_to_next_valid()
 
+    def rotate_ghost_to_next_valid(self):
+        base_id = self.selected_deco_item.get("base_id")
+        color_id = self.selected_deco_item.get("color_id", "0")
+        
+        for i in range(1, 5):
+            next_rotation_idx = (self.ghost_rotation + i) % 4
+            if self._get_rendered_image(base_id, color_id, next_rotation_idx) is not None:
+                self.ghost_rotation = next_rotation_idx
+                print(f"[LOG] Fantasma rotado a índice: {self.ghost_rotation} (Sprite Dir: {self.ROTATION_MAP[self.ghost_rotation]})")
+                return
+        
+        print(f"[AVISO] No se encontraron otras rotaciones válidas para '{base_id}'.")
+
+    def delete_decoration_at(self, grid_pos):
+        for deco in reversed(self.app.placed_decorations):
+            if tuple(deco.get("grid_pos")) == grid_pos:
+                self.app.placed_decorations.remove(deco)
+                self.app.occupied_tiles.remove(grid_pos)
+                print(f"[LOG] Objeto '{deco.get('base_id')}' eliminado de la posición {grid_pos}")
+                return
+
+    def place_decoration(self, grid_pos):
+        if not self.selected_deco_item: return
+        
+        grid_pos_tuple = tuple(grid_pos)
+        
+        if grid_pos_tuple in self.app.occupied_tiles:
+            print(f"[AVISO] No se puede colocar: la casilla {grid_pos_tuple} ya está ocupada.")
+            return
+
+        print(f"[LOG] Colocando '{self.selected_deco_item['base_id']}' en {grid_pos_tuple} con rotación {self.ghost_rotation}")
+        self.app.placed_decorations.append({
+            "base_id": self.selected_deco_item['base_id'],
+            "color_id": self.selected_deco_item['color_id'],
+            "grid_pos": list(grid_pos), 
+            "rotation": self.ghost_rotation
+        })
+        self.app.occupied_tiles.add(grid_pos_tuple)
+        
     def perform_search(self):
         self.active_search_term = self.search_input.text.lower().strip()
-        print(f"[LOG] Realizando búsqueda de: '{self.active_search_term}'")
         self.scroll_y = 0
 
     def clamp_scroll(self):
@@ -154,8 +190,75 @@ class DecorationEditor:
                 elif elem_type == 'item':
                     self.selected_deco_item = elem_id
                     self.ghost_rotation = 0
-                    print(f"[LOG] Objeto seleccionado: {self.selected_deco_item['name']} (base_id: {self.selected_deco_item['base_id']})")
                 return
+
+    def _get_rendered_image(self, base_id, color_id, rotation):
+        if base_id is None or color_id is None or rotation is None: return None
+        direction = self.ROTATION_MAP[rotation % 4]
+        
+        filename_with_color = f"{base_id}_dir_{direction}_{color_id}_no_sd.png"
+        relative_path_with_color = os.path.join("furnis", base_id, "rendered", filename_with_color).replace("\\", "/")
+        
+        image = self.app.data_manager.get_image(relative_path_with_color)
+        if image: return image
+
+        filename_default = f"{base_id}_dir_{direction}_no_sd.png"
+        relative_path_default = os.path.join("furnis", base_id, "rendered", filename_default).replace("\\", "/")
+
+        image = self.app.data_manager.get_image(relative_path_default)
+        if image: return image
+        
+        return None
+
+    def get_selected_item_image(self):
+        if not self.selected_deco_item: return None
+        base_id = self.selected_deco_item.get("base_id")
+        color_id = self.selected_deco_item.get("color_id")
+        return self._get_rendered_image(base_id, color_id, self.ghost_rotation)
+
+    def _draw_decoration(self, surface, base_id, color_id, grid_pos, rotation, is_ghost=False, is_occupied=False):
+        image = self._get_rendered_image(base_id, color_id, rotation)
+        if not image: return
+
+        screen_pos = grid_to_screen(grid_pos[0], grid_pos[1], self.app.camera_offset)
+        tile_center_x = screen_pos[0] + TILE_WIDTH_HALF
+        tile_center_y = screen_pos[1] + TILE_HEIGHT_HALF
+        anchor_y = tile_center_y + TILE_HEIGHT_HALF
+        draw_x = tile_center_x - image.get_width() // 2
+        draw_y = anchor_y - image.get_height()
+
+        if is_ghost:
+            ghost_image = image.copy()
+            ghost_image.set_alpha(150)
+            
+            # --- INICIO DE LA CORRECCIÓN ---
+            if is_occupied:
+                # Crear una superficie de tinte rojo semitransparente
+                red_tint_surface = pygame.Surface(ghost_image.get_size(), pygame.SRCALPHA)
+                red_tint_surface.fill((255, 50, 50, 150)) # Rojo con 150 de alfa
+                # Pintar el tinte sobre la imagen fantasma
+                ghost_image.blit(red_tint_surface, (0, 0))
+            # --- FIN DE LA CORRECCIÓN ---
+                
+            surface.blit(ghost_image, (draw_x, draw_y))
+        else:
+            surface.blit(image, (draw_x, draw_y))
+
+    def draw_on_editor(self, surface):
+        sorted_decos = sorted(self.app.placed_decorations, key=lambda d: (d['grid_pos'][1] + d['grid_pos'][0], d['grid_pos'][1] - d['grid_pos'][0]))
+        
+        for deco in sorted_decos:
+            self._draw_decoration(surface, deco.get("base_id"), deco.get("color_id", "0"), deco.get("grid_pos"), deco.get("rotation", 0))
+
+        if self.selected_deco_item and self.app.editor_rect.collidepoint(pygame.mouse.get_pos()):
+            base_id = self.selected_deco_item.get("base_id")
+            color_id = self.selected_deco_item.get("color_id", "0")
+            if base_id:
+                is_occupied = tuple(self.ghost_pos) in self.app.occupied_tiles
+                self._draw_decoration(surface, base_id, color_id, self.ghost_pos, self.ghost_rotation, is_ghost=True, is_occupied=is_occupied)
+
+    def get_info_lines(self):
+        return ["[Clic Izq] Colocar Objeto", "[Clic Der] Eliminar Objeto", "[R] Rotar Fantasma", "[Esc] Deseleccionar"]
 
     def draw_ui_on_panel(self, screen):
         pygame.draw.rect(screen, COLOR_PANEL_BG, self.panel_rect)
@@ -314,88 +417,3 @@ class DecorationEditor:
             is_hovered = self.scrollbar_thumb_rect.collidepoint(pygame.mouse.get_pos())
             color = COLOR_SCROLLBAR_THUMB_HOVER if is_hovered or self.is_scrolling_with_thumb else COLOR_SCROLLBAR_THUMB
             pygame.draw.rect(screen, color, self.scrollbar_thumb_rect, border_radius=4)
-
-    def place_decoration(self, grid_pos):
-        if not self.selected_deco_item: return
-        print(f"[LOG] Colocando decoración '{self.selected_deco_item['base_id']}' en {grid_pos} con rotación {self.ghost_rotation}")
-        self.app.placed_decorations.append({
-            "base_id": self.selected_deco_item['base_id'],
-            "color_id": self.selected_deco_item['color_id'],
-            "grid_pos": list(grid_pos), 
-            "rotation": self.ghost_rotation
-        })
-
-    def _get_rendered_image(self, base_id, color_id, rotation):
-        """Busca y carga la imagen pre-renderizada SIN SOMBRA de un objeto."""
-        direction = self.ROTATION_MAP[rotation % 4]
-        
-        # <-- CAMBIO: Añadido '_no_sd' para usar renders sin sombra -->
-        filename_with_color = f"{base_id}_dir_{direction}_{color_id}_no_sd.png"
-        relative_path_with_color = os.path.join("furnis", base_id, "rendered", filename_with_color).replace("\\", "/")
-        
-        image = self.app.data_manager.get_image(relative_path_with_color)
-        if image:
-            return image
-
-        # <-- CAMBIO: Añadido '_no_sd' para usar renders sin sombra -->
-        filename_default = f"{base_id}_dir_{direction}_no_sd.png"
-        relative_path_default = os.path.join("furnis", base_id, "rendered", filename_default).replace("\\", "/")
-
-        image = self.app.data_manager.get_image(relative_path_default)
-        if image:
-            return image
-        
-        # <-- CAMBIO: Mensaje de error actualizado para reflejar la búsqueda de '_no_sd' -->
-        print(f"[ERROR] No se encontró la imagen renderizada SIN SOMBRA para '{base_id}' en dirección {direction} (color: {color_id}). Rutas buscadas:\n  - {relative_path_with_color}\n  - {relative_path_default}")
-        return None
-
-    def get_selected_item_image(self):
-        """Obtiene la imagen renderizada del ítem actualmente seleccionado para la vista previa, respetando la rotación actual."""
-        if not self.selected_deco_item:
-            return None
-        
-        base_id = self.selected_deco_item.get("base_id")
-        color_id = self.selected_deco_item.get("color_id")
-        
-        # <-- CAMBIO: Usa la rotación del fantasma en lugar de un valor fijo -->
-        return self._get_rendered_image(base_id, color_id, self.ghost_rotation)
-
-    def _draw_decoration(self, surface, base_id, color_id, grid_pos, rotation, is_ghost=False):
-        """Dibuja una decoración usando su imagen pre-renderizada."""
-        image = self._get_rendered_image(base_id, color_id, rotation)
-        if not image:
-            return
-
-        screen_pos = grid_to_screen(grid_pos[0], grid_pos[1], self.app.camera_offset)
-        tile_center_x = screen_pos[0] + TILE_WIDTH_HALF
-        tile_center_y = screen_pos[1] + TILE_HEIGHT_HALF
-        
-        draw_x = tile_center_x - image.get_width() // 2
-        draw_y = tile_center_y - image.get_height()
-
-        if is_ghost:
-            ghost_image = image.copy()
-            ghost_image.set_alpha(150)
-            surface.blit(ghost_image, (draw_x, draw_y))
-        else:
-            surface.blit(image, (draw_x, draw_y))
-
-    def draw_on_editor(self, surface):
-        sorted_decos = sorted(self.app.placed_decorations, key=lambda d: (d['grid_pos'][1] + d['grid_pos'][0], d['grid_pos'][1] - d['grid_pos'][0]))
-        
-        for deco in sorted_decos:
-            pos = deco.get("grid_pos")
-            base_id = deco.get("base_id")
-            color_id = deco.get("color_id", "0")
-            rotation = deco.get("rotation", 0)
-            if pos and base_id:
-                self._draw_decoration(surface, base_id, color_id, pos, rotation)
-
-        if self.selected_deco_item and self.app.editor_rect.collidepoint(pygame.mouse.get_pos()):
-            base_id = self.selected_deco_item.get("base_id")
-            color_id = self.selected_deco_item.get("color_id", "0")
-            if base_id:
-                self._draw_decoration(surface, base_id, color_id, self.ghost_pos, self.ghost_rotation, is_ghost=True)
-
-    def get_info_lines(self):
-        return ["[Click Item] Seleccionar", "[Click Lienzo] Colocar", "[R] Rotar Fantasma", "[Esc] Deseleccionar", "[Rueda Ratón] Scroll"]
