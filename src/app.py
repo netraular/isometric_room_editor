@@ -29,12 +29,11 @@ class App:
         self.camera_offset, self.save_confirmation_timer = [0, 0], 0
         
         self.main_mode = EDITOR_MODE_STRUCTURE
-        # --- Importante: Inicializar los editores ANTES de llamar a update_layout ---
         self.structure_editor = StructureEditor(self)
         self.decoration_editor = DecorationEditor(self)
         self.active_editor = self.structure_editor
         
-        self.update_layout() # Llama al layout una vez que todo está inicializado
+        self.update_layout()
         self.load_initial_room()
 
     def update_layout(self):
@@ -65,12 +64,17 @@ class App:
         self.preview_rect = pygame.Rect(0, 0, PREVIEW_SIZE[0], PREVIEW_SIZE[1])
         self.preview_rect.topright = (self.editor_rect.right - margin, self.editor_rect.top + margin)
         self.preview_surface = pygame.Surface(PREVIEW_SIZE)
+        
+        # --- INICIO: NUEVA VISTA PREVIA DEL ÍTEM ---
+        item_preview_size = (120, 120)
+        self.item_preview_rect = pygame.Rect(0, 0, item_preview_size[0], item_preview_size[1])
+        self.item_preview_rect.topright = (self.preview_rect.right, self.preview_rect.bottom + 40)
+        self.item_preview_surface = pygame.Surface(item_preview_size, pygame.SRCALPHA)
+        # --- FIN: NUEVA VISTA PREVIA DEL ÍTEM ---
 
         input_y = self.right_panel_rect.y + margin + 20
-        # --- LÍNEAS MODIFICADAS: Se especifica el 'input_type' ---
         self.anchor_offset_input_x = TextInputBox(self.right_panel_rect.left + margin, input_y, 100, 25, self.font_ui, input_type='numeric')
         self.anchor_offset_input_y = TextInputBox(self.right_panel_rect.right - 100 - margin, input_y, 100, 25, self.font_ui, input_type='numeric')
-        # --- FIN DE LÍNEAS MODIFICADAS ---
         self.input_boxes = [self.anchor_offset_input_x, self.anchor_offset_input_y]
         
         if hasattr(self, 'structure_editor'): self.structure_editor.setup_ui()
@@ -118,7 +122,7 @@ class App:
             if event.type == pygame.VIDEORESIZE: 
                 self.win_width, self.win_height = event.size
                 self.screen = pygame.display.set_mode((self.win_width, self.win_height), pygame.RESIZABLE)
-                self.update_layout() # Esencial para que el layout se adapte
+                self.update_layout()
             
             if self.main_mode == EDITOR_MODE_STRUCTURE:
                 for box in self.input_boxes:
@@ -150,13 +154,18 @@ class App:
         pygame.draw.rect(self.screen, COLOR_BORDER, self.editor_rect, 1)
         pygame.draw.rect(self.screen, COLOR_BORDER, self.right_panel_rect, 1)
 
+        # Previsualización de la Sala
         self.draw_room_on_surface(self.preview_surface, self.calculate_preview_offset(PREVIEW_SIZE), False)
         self.screen.blit(self.preview_surface, self.preview_rect)
         pygame.draw.rect(self.screen, COLOR_BORDER, self.preview_rect, 1)
-        
-        title_surf = self.font_title.render("Preview", True, COLOR_TITLE_TEXT)
+        title_surf = self.font_title.render("Room Preview", True, COLOR_TITLE_TEXT)
         title_rect = title_surf.get_rect(topright=(self.preview_rect.right, self.preview_rect.bottom + 5))
         self.screen.blit(title_surf, title_rect)
+
+        # --- INICIO: DIBUJAR NUEVA VISTA PREVIA DEL ÍTEM ---
+        if self.main_mode == EDITOR_MODE_DECORATIONS:
+            self.draw_item_preview()
+        # --- FIN: DIBUJAR NUEVA VISTA PREVIA DEL ÍTEM ---
 
         self.draw_info_box(self.active_editor.get_info_lines())
 
@@ -173,6 +182,33 @@ class App:
         self.draw_save_confirmation()
         pygame.display.flip()
 
+    # --- INICIO: NUEVA FUNCIÓN PARA DIBUJAR LA VISTA PREVIA DEL ÍTEM ---
+    def draw_item_preview(self):
+        """Dibuja el panel de vista previa para el objeto de decoración seleccionado."""
+        self.item_preview_surface.fill(COLOR_EDITOR_BG)
+        
+        item_image = self.decoration_editor.get_selected_item_image()
+        if item_image:
+            # Escalar la imagen si es más grande que el panel, manteniendo la proporción
+            img_w, img_h = item_image.get_size()
+            box_w, box_h = self.item_preview_rect.size
+            if img_w > box_w or img_h > box_h:
+                scale = min(box_w / img_w, box_h / img_h)
+                new_size = (int(img_w * scale), int(img_h * scale))
+                item_image = pygame.transform.scale(item_image, new_size)
+
+            # Centrar y blitear la imagen en la superficie
+            img_rect = item_image.get_rect(center=self.item_preview_surface.get_rect().center)
+            self.item_preview_surface.blit(item_image, img_rect)
+        
+        self.screen.blit(self.item_preview_surface, self.item_preview_rect)
+        pygame.draw.rect(self.screen, COLOR_BORDER, self.item_preview_rect, 1)
+        
+        title_surf = self.font_title.render("Item Preview", True, COLOR_TITLE_TEXT)
+        title_rect = title_surf.get_rect(topright=(self.item_preview_rect.right, self.item_preview_rect.bottom + 5))
+        self.screen.blit(title_surf, title_rect)
+    # --- FIN: NUEVA FUNCIÓN ---
+
     def run(self):
         running = True
         try:
@@ -181,7 +217,7 @@ class App:
                 self.draw()
                 self.clock.tick(60)
         except KeyboardInterrupt:
-            print("\nEditor closed via Ctrl+C.")
+            print("\nEditor cerrado con Ctrl+C.")
         finally:
             pygame.quit()
     
@@ -245,16 +281,15 @@ class App:
                     self.draw_wall(surf, screen_pos, edge)
 
         if is_editor:
+            self.active_editor.draw_on_editor(surf) # Movido aquí para dibujar decoraciones sobre los tiles/paredes
             anchor_pos = (self.structure_data["renderAnchor"]["x"] + offset[0], self.structure_data["renderAnchor"]["y"] + offset[1])
             pygame.draw.circle(surf, COLOR_ANCHOR, anchor_pos, 5); pygame.draw.line(surf, COLOR_ANCHOR, (anchor_pos[0] - 8, anchor_pos[1]), (anchor_pos[0] + 8, anchor_pos[1]), 1); pygame.draw.line(surf, COLOR_ANCHOR, (anchor_pos[0], anchor_pos[1] - 8), (anchor_pos[0], anchor_pos[1] + 8), 1)
             ax, ay = self.structure_data["renderAnchor"]["x"], self.structure_data["renderAnchor"]["y"]
             pw, ph = PREVIEW_SIZE
             preview_bounds_rect = pygame.Rect((ax - pw / 2) + offset[0], (ay - ph / 2) + offset[1], pw, ph)
             pygame.draw.rect(surf, COLOR_PREVIEW_OUTLINE, preview_bounds_rect, 1)
-            self.active_editor.draw_on_editor(surf)
 
     def draw_grid(self, surf):
-        """Dibuja una sutil rejilla isométrica en la superficie del editor."""
         if not self.editor_rect.w or not self.editor_rect.h: return
 
         corners_grid = [
@@ -284,8 +319,8 @@ class App:
 
     def draw_info_box(self, mode_specific_lines):
         margin, padding, line_height = 15, 8, 15
-        base_lines = ["Controls:", "[Middle Mouse] Pan View"]
-        if self.main_mode == EDITOR_MODE_STRUCTURE: base_lines.append("[Shift+Click] Set Anchor")
+        base_lines = ["Controles:", "[Rueda Media] Mover Vista"]
+        if self.main_mode == EDITOR_MODE_STRUCTURE: base_lines.append("[Shift+Click] Poner Ancla")
         info_lines = base_lines[:1] + mode_specific_lines + base_lines[1:]
         rendered_lines = [self.font_info.render(line, True, COLOR_INFO_TEXT) for line in info_lines]
         box_w = max(line.get_width() for line in rendered_lines) + padding * 2; box_h = len(info_lines) * line_height + padding * 2
@@ -300,7 +335,7 @@ class App:
         if self.save_confirmation_timer > 0:
             self.save_confirmation_timer -= 1
             surf = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
-            text_surf = self.font_title.render("Files Saved!", True, COLOR_TEXT)
+            text_surf = self.font_title.render("¡Archivos Guardados!", True, COLOR_TEXT)
             bg_rect = text_surf.get_rect(center=self.editor_rect.center).inflate(30, 20)
             pygame.draw.rect(surf, COLOR_SAVE_CONFIRM_BG, bg_rect, border_radius=8)
             self.screen.blit(surf, (0, 0))
