@@ -32,7 +32,8 @@ class DataManager:
         if base_id in self.decoration_data_cache:
             return self.decoration_data_cache[base_id]
             
-        deco_json_path = os.path.join(self.project_root, "assets", "decorations", base_id, "furni.json")
+        # --- LÍNEA CORREGIDA: Se usa 'furnis' en lugar de 'decorations' ---
+        deco_json_path = os.path.join(self.project_root, "assets", "furnis", base_id, "furni.json")
         if not os.path.exists(deco_json_path):
             print(f"Error: No se encontró furni.json para {base_id}")
             return None

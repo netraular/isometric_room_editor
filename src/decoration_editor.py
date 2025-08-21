@@ -293,7 +293,8 @@ class DecorationEditor:
                  if asset_key not in deco_data.get("assets", {}): asset_key = f"{base_id}_icon_a"
                  if asset_key in deco_data.get("assets", {}):
                      asset_info = deco_data["assets"][asset_key]
-                     asset_path = f"decorations/{base_id}/{asset_info.get('name', asset_key)}.png"
+                     # --- LÍNEA CORREGIDA: Se usa 'furnis' en lugar de 'decorations' ---
+                     asset_path = f"furnis/{base_id}/{asset_info.get('name', asset_key)}.png"
                      image = self.app.data_manager.get_image(asset_path)
                      if image:
                         offset_x = int(asset_info.get('x', 0)); offset_y = int(asset_info.get('y', 0))
