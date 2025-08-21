@@ -3,5 +3,4 @@ rooms
 __pycache__
 rooms
 src\common\__pycache__
-assets/decorations/
-assets/icons/
+assets/furnis/
