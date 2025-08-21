@@ -42,13 +42,10 @@ class App:
         btn_y = 5
         btn_height = 30
         
-        # --- LÍNEAS MODIFICADAS: PANEL DERECHO DINÁMICO ---
-        # El panel derecho ahora ocupa 1/3 del ancho de la ventana.
         right_panel_width = self.win_width // 3 
         self.top_bar_rect = pygame.Rect(0, 0, self.win_width, TOP_BAR_HEIGHT)
         self.right_panel_rect = pygame.Rect(self.win_width - right_panel_width, TOP_BAR_HEIGHT, right_panel_width, self.win_height - TOP_BAR_HEIGHT)
         self.editor_rect = pygame.Rect(0, TOP_BAR_HEIGHT, self.win_width - right_panel_width, self.win_height - TOP_BAR_HEIGHT)
-        # --- FIN DE LÍNEAS MODIFICADAS ---
         
         self.editor_surface = pygame.Surface(self.editor_rect.size, pygame.SRCALPHA)
         
@@ -70,12 +67,13 @@ class App:
         self.preview_surface = pygame.Surface(PREVIEW_SIZE)
 
         input_y = self.right_panel_rect.y + margin + 20
-        self.anchor_offset_input_x = TextInputBox(self.right_panel_rect.left + margin, input_y, 100, 25, self.font_ui)
-        self.anchor_offset_input_y = TextInputBox(self.right_panel_rect.right - 100 - margin, input_y, 100, 25, self.font_ui)
+        # --- LÍNEAS MODIFICADAS: Se especifica el 'input_type' ---
+        self.anchor_offset_input_x = TextInputBox(self.right_panel_rect.left + margin, input_y, 100, 25, self.font_ui, input_type='numeric')
+        self.anchor_offset_input_y = TextInputBox(self.right_panel_rect.right - 100 - margin, input_y, 100, 25, self.font_ui, input_type='numeric')
+        # --- FIN DE LÍNEAS MODIFICADAS ---
         self.input_boxes = [self.anchor_offset_input_x, self.anchor_offset_input_y]
         
         if hasattr(self, 'structure_editor'): self.structure_editor.setup_ui()
-        # --- LÍNEA AÑADIDA: Notificar al decoration_editor que el layout ha cambiado ---
         if hasattr(self, 'decoration_editor'): self.decoration_editor.update_layout()
 
     def load_initial_room(self):
@@ -225,6 +223,10 @@ class App:
 
     def draw_room_on_surface(self, surf, offset, is_editor):
         surf.fill(COLOR_EDITOR_BG if is_editor else COLOR_PREVIEW_BG)
+        
+        if is_editor:
+            self.draw_grid(surf)
+
         if not self.structure_data: return
         
         origin_pos = grid_to_screen(0, 0, offset)
@@ -250,6 +252,29 @@ class App:
             preview_bounds_rect = pygame.Rect((ax - pw / 2) + offset[0], (ay - ph / 2) + offset[1], pw, ph)
             pygame.draw.rect(surf, COLOR_PREVIEW_OUTLINE, preview_bounds_rect, 1)
             self.active_editor.draw_on_editor(surf)
+
+    def draw_grid(self, surf):
+        """Dibuja una sutil rejilla isométrica en la superficie del editor."""
+        if not self.editor_rect.w or not self.editor_rect.h: return
+
+        corners_grid = [
+            screen_to_grid(0, 0, self.camera_offset),
+            screen_to_grid(self.editor_rect.w, 0, self.camera_offset),
+            screen_to_grid(self.editor_rect.w, self.editor_rect.h, self.camera_offset),
+            screen_to_grid(0, self.editor_rect.h, self.camera_offset)
+        ]
+        
+        min_gx = min(c[0] for c in corners_grid) - 1
+        max_gx = max(c[0] for c in corners_grid) + 2
+        min_gy = min(c[1] for c in corners_grid) - 1
+        max_gy = max(c[1] for c in corners_grid) + 2
+        
+        for gy in range(min_gy, max_gy):
+            for gx in range(min_gx, max_gx):
+                screen_pos = grid_to_screen(gx, gy, self.camera_offset)
+                p = self.get_tile_points(screen_pos)
+                points = [p['top'], p['right'], p['bottom'], p['left']]
+                pygame.draw.polygon(surf, COLOR_GRID, points, 1)
 
     def center_camera_on_room(self):
         if not self.editor_rect.w or not self.editor_rect.h: return
