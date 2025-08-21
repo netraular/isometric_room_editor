@@ -9,8 +9,6 @@ from common.utils import grid_to_screen, screen_to_grid
 
 class DecorationEditor:
     SCROLL_SPEED = 30
-    # --- LÍNEA ELIMINADA ---
-    # ROTATION_MAP = [2, 4, 6, 0] # Esta constante se ha movido a constants.py
 
     def __init__(self, app_ref):
         self.app = app_ref
@@ -68,7 +66,9 @@ class DecorationEditor:
         base_id = self.selected_deco_item.get("base_id"); color_id = self.selected_deco_item.get("color_id", "0")
         for i in range(1, 5):
             next_rotation_idx = (self.ghost_rotation + i) % 4
-            if self.app.renderer.get_rendered_image(base_id, color_id, next_rotation_idx) is not None:
+            # CAMBIO SUTIL: Aquí también usamos el nuevo método, pero solo nos importa si la imagen existe
+            image, _ = self.app.renderer.get_rendered_image_and_offset(base_id, color_id, next_rotation_idx)
+            if image is not None:
                 self.ghost_rotation = next_rotation_idx; print(f"[LOG] Fantasma rotado a índice: {self.ghost_rotation} (Sprite Dir: {DECO_ROTATION_MAP[self.ghost_rotation]})"); return
         print(f"[AVISO] No se encontraron otras rotaciones válidas para '{base_id}'.")
 
@@ -101,9 +101,22 @@ class DecorationEditor:
                 elif elem_type == 'item': self.selected_deco_item = elem_id; self.ghost_rotation = 0
                 return
 
+    # <-- INICIO DEL CAMBIO -->
     def get_selected_item_image(self):
-        if not self.selected_deco_item: return None
-        return self.app.renderer.get_rendered_image(self.selected_deco_item.get("base_id"), self.selected_deco_item.get("color_id"), self.ghost_rotation)
+        """Obtiene solo la imagen del objeto seleccionado para la vista previa."""
+        if not self.selected_deco_item:
+            return None
+        
+        # Llama al nuevo método que devuelve (imagen, offset)
+        image, _ = self.app.renderer.get_rendered_image_and_offset(
+            self.selected_deco_item.get("base_id"), 
+            self.selected_deco_item.get("color_id"), 
+            self.ghost_rotation
+        )
+        
+        # Devuelve solo la imagen, que es lo que esta función necesita
+        return image
+    # <-- FIN DEL CAMBIO -->
 
     def draw_on_editor(self, surface):
         if self.selected_deco_item and self.app.editor_rect.collidepoint(pygame.mouse.get_pos()) and self.app.current_room:

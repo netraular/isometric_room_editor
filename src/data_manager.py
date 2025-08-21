@@ -12,9 +12,9 @@ class DataManager:
         self.root.withdraw()
         self.current_decoration_set_path = None
         self.current_structure_path = None
-        # --- CACHÉ PARA IMÁGENES Y DATOS DE DECORACIÓN ---
         self.image_cache = {}
         self.decoration_data_cache = {}
+        self.render_data_cache = {} # <-- NUEVA CACHÉ
 
     def load_catalog(self):
         catalog_path = os.path.join(self.project_root, "assets", "catalog.json")
@@ -32,7 +32,6 @@ class DataManager:
         if base_id in self.decoration_data_cache:
             return self.decoration_data_cache[base_id]
             
-        # --- LÍNEA CORREGIDA: Se usa 'furnis' en lugar de 'decorations' ---
         deco_json_path = os.path.join(self.project_root, "assets", "furnis", base_id, "furni.json")
         if not os.path.exists(deco_json_path):
             print(f"Error: No se encontró furni.json para {base_id}")
@@ -45,6 +44,26 @@ class DataManager:
         except Exception as e:
             print(f"Error cargando datos de decoración para {base_id}: {e}")
             return None
+
+    # NUEVO MÉTODO PARA CARGAR LOS OFFSETS
+    def load_render_data(self, base_id):
+        if base_id in self.render_data_cache:
+            return self.render_data_cache[base_id]
+        
+        render_data_path = os.path.join(self.project_root, "assets", "furnis", base_id, "renderdata.json")
+        if not os.path.exists(render_data_path):
+            # No es un error fatal, algunos objetos podrían no tenerlo, o puede que no se haya re-extraído
+            self.render_data_cache[base_id] = None # Cachear el fallo para no volver a buscarlo
+            return None
+        try:
+            with open(render_data_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                self.render_data_cache[base_id] = data
+                return data
+        except Exception as e:
+            print(f"Error cargando renderdata.json para {base_id}: {e}")
+            self.render_data_cache[base_id] = None
+            return None
             
     def get_image(self, relative_path):
         if relative_path in self.image_cache:
@@ -52,7 +71,6 @@ class DataManager:
         
         full_path = os.path.join(self.project_root, "assets", relative_path)
         if not os.path.exists(full_path):
-            # print(f"Error: no se encontró la imagen en {full_path}")
             return None
         try:
             image = pygame.image.load(full_path).convert_alpha()
@@ -61,7 +79,8 @@ class DataManager:
         except Exception as e:
             print(f"Error al cargar la imagen {full_path}: {e}")
             return None
-
+            
+    # --- RESTO DE LA CLASE SIN CAMBIOS ---
     def load_structure_only(self):
         initial_dir = os.path.join(self.project_root, "rooms", "structures")
         os.makedirs(initial_dir, exist_ok=True)

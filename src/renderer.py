@@ -10,7 +10,6 @@ class RoomRenderer:
         self.data_manager = data_manager
 
     def draw_room_on_surface(self, surface, room, camera_offset, is_editor_view=True):
-        """Dibuja una habitación completa en una superficie dada."""
         surface.fill(COLOR_EDITOR_BG if is_editor_view else COLOR_PREVIEW_BG)
         
         if is_editor_view:
@@ -33,7 +32,6 @@ class RoomRenderer:
                     screen_pos = grid_to_screen(gx, gy, camera_offset)
                     self._draw_wall(surface, screen_pos, edge)
 
-        # Dibujar decoraciones
         for deco in room.get_decorations_sorted_for_render():
             self._draw_decoration(surface, deco, camera_offset)
 
@@ -77,39 +75,59 @@ class RoomRenderer:
             wall_points = [p1, p2, (p2[0], p2[1] - WALL_HEIGHT), (p1[0], p1[1] - WALL_HEIGHT)]
             pygame.draw.polygon(surf, COLOR_WALL, wall_points)
             pygame.draw.polygon(surf, COLOR_WALL_BORDER, wall_points, 2)
+            
+    def get_rendered_image_and_offset(self, base_id, color_id, rotation):
+        if base_id is None or color_id is None or rotation is None: 
+            return None, None
 
-    def get_rendered_image(self, base_id, color_id, rotation):
-        """Obtiene una imagen de decoración renderizada, con fallbacks."""
-        if base_id is None or color_id is None or rotation is None: return None
-        # --- LÍNEA CORREGIDA ---
         direction = DECO_ROTATION_MAP[rotation % 4]
-        
-        filename_with_color = f"{base_id}_dir_{direction}_{color_id}_no_sd.png"
-        relative_path_with_color = os.path.join("furnis", base_id, "rendered", filename_with_color).replace("\\", "/")
-        image = self.data_manager.get_image(relative_path_with_color)
-        if image: return image
+        render_data = self.data_manager.load_render_data(base_id)
 
-        filename_default = f"{base_id}_dir_{direction}_no_sd.png"
-        relative_path_default = os.path.join("furnis", base_id, "rendered", filename_default).replace("\\", "/")
-        image = self.data_manager.get_image(relative_path_default)
-        return image
+        def get_fallback_offset(image):
+            return (image.get_width() // 2, image.get_height())
+
+        def get_data_for_path(filename_base, path):
+            image = self.data_manager.get_image(path)
+            if image:
+                if render_data and filename_base in render_data:
+                    offset_data = render_data[filename_base]
+                    return image, (offset_data['X'], offset_data['Y'])
+                else: 
+                    return image, get_fallback_offset(image)
+            return None, None
+
+        filename_base_color = f"{base_id}_dir_{direction}_{color_id}_no_sd"
+        path_color = os.path.join("furnis", base_id, "rendered", filename_base_color + ".png").replace("\\", "/")
+        image, offset = get_data_for_path(filename_base_color, path_color)
+        if image:
+            return image, offset
+
+        filename_base_default = f"{base_id}_dir_{direction}_no_sd"
+        path_default = os.path.join("furnis", base_id, "rendered", filename_base_default + ".png").replace("\\", "/")
+        image, offset = get_data_for_path(filename_base_default, path_default)
+        if image:
+            return image, offset
+        
+        return None, None
 
     def _draw_decoration(self, surface, deco_data, camera_offset, is_ghost=False, is_occupied=False):
-        """Dibuja una única decoración (real o fantasma) en la superficie."""
-        base_id = deco_data.get("base_id")
-        color_id = deco_data.get("color_id", "0")
-        grid_pos = deco_data.get("grid_pos")
-        rotation = deco_data.get("rotation", 0)
+        base_id, color_id = deco_data.get("base_id"), deco_data.get("color_id", "0")
+        grid_pos, rotation = deco_data.get("grid_pos"), deco_data.get("rotation", 0)
         
-        image = self.get_rendered_image(base_id, color_id, rotation)
-        if not image: return
+        image, offset = self.get_rendered_image_and_offset(base_id, color_id, rotation)
+        if not image or not offset:
+            return
 
         screen_pos = grid_to_screen(grid_pos[0], grid_pos[1], camera_offset)
-        tile_center_x = screen_pos[0] + TILE_WIDTH_HALF
-        tile_center_y = screen_pos[1] + TILE_HEIGHT_HALF
-        anchor_y = tile_center_y + TILE_HEIGHT_HALF
-        draw_x = tile_center_x - image.get_width() // 2
-        draw_y = anchor_y - image.get_height()
+        
+        anchor_x = screen_pos[0] + TILE_WIDTH_HALF
+        # <-- INICIO DE LA CORRECCIÓN -->
+        # El ancla es la línea central horizontal de la tile, no su punto más bajo.
+        anchor_y = screen_pos[1] + TILE_HEIGHT_HALF
+        # <-- FIN DE LA CORRECCIÓN -->
+
+        draw_x = anchor_x - offset[0]
+        draw_y = anchor_y - offset[1]
 
         if is_ghost:
             ghost_image = image.copy()
