@@ -31,7 +31,6 @@ def build_catalog_from_assets():
 
     # 2. Read the category definitions and prepare the catalog structure
     print(f"Reading category definitions from '{CATEGORIES_INPUT_FILE}'...")
-    # --- MODIFIED LINE ---
     # Use 'utf-8-sig' to automatically handle the BOM character if it exists
     with open(CATEGORIES_INPUT_FILE, 'r', encoding='utf-8-sig') as f:
         category_keys = [line.strip() for line in f if line.strip()]
@@ -82,20 +81,22 @@ def build_catalog_from_assets():
 
             item_category_key = furni_data.get("category", "other").lower()
 
+            # --- MODIFIED: Renamed loop variable for clarity ---
             # Iterate through all color/state variants of the item
-            for color_id, variant_data in furni_data.get("variants", {}).items():
+            for variant_id, variant_data in furni_data.get("variants", {}).items():
                 
                 # We need an icon to show it in the editor
                 if not variant_data.get("icon_path"):
                     items_skipped += 1
                     continue
 
+                # --- MODIFIED: Renamed 'color_id' to 'variant_id' ---
                 # Construct the item object for the catalog
                 catalog_item = {
-                    "id": variant_data.get("id", f"{base_id}_{color_id}"),
+                    "id": variant_data.get("id", f"{base_id}_{variant_id}"),
                     "name": variant_data.get("name", base_id),
                     "base_id": base_id,
-                    "color_id": color_id,
+                    "variant_id": variant_id,
                     "icon_path": variant_data.get("icon_path")
                 }
                 

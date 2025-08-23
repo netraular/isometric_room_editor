@@ -27,7 +27,6 @@ class DecorationEditor:
         self.search_input = None
         self.search_button = None
         self.ghost_pos = (0, 0)
-        # --- MODIFIED: Added hover_grid_pos to store the tile under the mouse ---
         self.hover_grid_pos = None 
         self.ghost_rotation = 0
         self.panel_rect = pygame.Rect(0, 0, 0, 0)
@@ -74,7 +73,6 @@ class DecorationEditor:
                 elif self.selected_deco_item and self.app.editor_rect.collidepoint(mouse_pos):
                     self.place_decoration(self.ghost_pos)
             if event.button == 3 and self.app.editor_rect.collidepoint(mouse_pos):
-                # --- MODIFIED: Pass camera zoom ---
                 clicked_grid_pos = screen_to_grid(local_mouse_pos[0], local_mouse_pos[1], self.app.camera.offset, self.app.camera.zoom)
                 self.delete_decoration_at(clicked_grid_pos)
 
@@ -90,7 +88,6 @@ class DecorationEditor:
                     self.clamp_scroll()
             
             if self.app.editor_rect.collidepoint(mouse_pos) and not self.app.camera.is_panning:
-                # --- MODIFIED: Pass camera zoom ---
                 self.hover_grid_pos = screen_to_grid(local_mouse_pos[0], local_mouse_pos[1], self.app.camera.offset, self.app.camera.zoom)
                 if self.selected_deco_item:
                     self.ghost_pos = self.hover_grid_pos
@@ -105,10 +102,10 @@ class DecorationEditor:
 
     def rotate_ghost_to_next_valid(self):
         base_id = self.selected_deco_item.get("base_id")
-        color_id = self.selected_deco_item.get("color_id", "0")
+        variant_id = self.selected_deco_item.get("variant_id", "0")
         for i in range(1, 5):
             next_rotation_idx = (self.ghost_rotation + i) % 4
-            image, _ = self.app.renderer.get_rendered_image_and_offset(base_id, color_id, next_rotation_idx)
+            image, _ = self.app.renderer.get_rendered_image_and_offset(base_id, variant_id, next_rotation_idx)
             if image is not None:
                 self.ghost_rotation = next_rotation_idx
                 return
@@ -120,7 +117,10 @@ class DecorationEditor:
     def place_decoration(self, grid_pos):
         if not self.selected_deco_item or not self.app.current_room:
             return
-        self.app.current_room.add_decoration(self.selected_deco_item['base_id'], self.selected_deco_item['color_id'], grid_pos, self.ghost_rotation)
+            
+        # --- LÍNEA CORREGIDA ---
+        # Se ha reemplazado 'color_id' por 'variant_id' para que coincida con la nueva estructura de datos.
+        self.app.current_room.add_decoration(self.selected_deco_item['base_id'], self.selected_deco_item['variant_id'], grid_pos, self.ghost_rotation)
         
     def perform_search(self):
         self.active_search_term = self.search_input.text.lower().strip()
@@ -150,12 +150,11 @@ class DecorationEditor:
     def get_selected_item_image(self):
         if not self.selected_deco_item:
             return None, None
-        image, offset = self.app.renderer.get_rendered_image_and_offset(self.selected_deco_item.get("base_id"), self.selected_deco_item.get("color_id"), self.ghost_rotation)
+        image, offset = self.app.renderer.get_rendered_image_and_offset(self.selected_deco_item.get("base_id"), self.selected_deco_item.get("variant_id"), self.ghost_rotation)
         return image, offset
 
     def draw_on_editor(self, surface):
         if self.hover_grid_pos:
-            # --- MODIFIED: Pass camera zoom ---
             hover_screen_pos = grid_to_screen(*self.hover_grid_pos, self.app.camera.offset, self.app.camera.zoom)
             p = self.app.renderer._get_tile_points(hover_screen_pos, self.app.camera.zoom)
             pygame.draw.polygon(surface, COLOR_HOVER_BORDER, [p['top'], p['right'], p['bottom'], p['left']], 3)
@@ -163,7 +162,7 @@ class DecorationEditor:
         if self.selected_deco_item and self.app.current_room and self.hover_grid_pos:
             ghost_data = {
                 "base_id": self.selected_deco_item.get("base_id"),
-                "color_id": self.selected_deco_item.get("color_id", "0"),
+                "variant_id": self.selected_deco_item.get("variant_id", "0"),
                 "grid_pos": self.ghost_pos,
                 "rotation": self.ghost_rotation
             }
@@ -258,7 +257,6 @@ class DecorationEditor:
             
             if icon_img:
                 pygame.draw.rect(self.content_surface, COLOR_EDITOR_BG, item_rect, border_radius=5)
-                # --- MODIFIED: Scale icon to fit while preserving aspect ratio ---
                 max_size = icon_size - 8
                 img_w, img_h = icon_img.get_size()
                 

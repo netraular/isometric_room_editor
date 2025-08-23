@@ -71,8 +71,9 @@ class RoomRenderer:
             wall_points = [p1, p2, (p2[0], p2[1] - scaled_wall_h), (p1[0], p1[1] - scaled_wall_h)]
             pygame.draw.polygon(surf, COLOR_WALL, wall_points); pygame.draw.polygon(surf, COLOR_WALL_BORDER, wall_points, 2)
 
-    def get_rendered_image_and_offset(self, base_id, color_id, rotation):
-        if not all((base_id, color_id, rotation is not None)):
+    # --- MODIFIED: Renamed parameter to variant_id ---
+    def get_rendered_image_and_offset(self, base_id, variant_id, rotation):
+        if not all((base_id, variant_id, rotation is not None)):
             return None, None
             
         furni_data = self.data_manager.get_furni_data(base_id)
@@ -80,7 +81,8 @@ class RoomRenderer:
             return None, None
 
         try:
-            variant = furni_data["variants"][str(color_id)]
+            # --- MODIFIED: Use variant_id to access the dictionary key ---
+            variant = furni_data["variants"][str(variant_id)]
             render_info = variant["renders"][str(rotation)]
             
             image_path = render_info["path"]
@@ -97,10 +99,12 @@ class RoomRenderer:
         return None, None
 
     def _draw_decoration(self, surface, deco_data, camera_offset, zoom=1.0, is_ghost=False, is_occupied=False):
-        base_id, color_id = deco_data.get("base_id"), deco_data.get("color_id", "0")
+        # --- MODIFIED: Renamed local variable to variant_id ---
+        base_id, variant_id = deco_data.get("base_id"), deco_data.get("variant_id", "0")
         grid_pos, rotation = deco_data.get("grid_pos"), deco_data.get("rotation", 0)
         
-        image, offset = self.get_rendered_image_and_offset(base_id, color_id, rotation)
+        # --- MODIFIED: Pass variant_id ---
+        image, offset = self.get_rendered_image_and_offset(base_id, variant_id, rotation)
         
         screen_pos = grid_to_screen(grid_pos[0], grid_pos[1], camera_offset, zoom)
 
@@ -118,7 +122,6 @@ class RoomRenderer:
         if scaled_size[0] <= 0 or scaled_size[1] <= 0:
             return
             
-        # --- MODIFIED: Use transform.scale for a crisp, pixel-perfect look ---
         final_image = pygame.transform.scale(image, scaled_size)
         scaled_offset = (offset[0] * zoom, offset[1] * zoom)
 

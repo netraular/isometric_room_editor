@@ -7,15 +7,15 @@ import os
 from common.constants import *
 from common.ui import Button, TextInputBox
 from common.utils import grid_to_screen # Needed for anchor
-from data_manager import DataManager
-from structure_editor import StructureEditor
-from decoration_editor import DecorationEditor
-from room import Room
+
+# --- MODIFICATION: Only import modules that do NOT depend on App ---
+# We keep these at the top because they are independent utilities or base classes.
 from camera import Camera
 from renderer import RoomRenderer
+from room import Room
+
 
 class App:
-    # --- MODIFIED: Accept assets_root in the constructor ---
     def __init__(self, project_root, assets_root):
         pygame.init()
         self.project_root = project_root
@@ -26,7 +26,14 @@ class App:
         self.clock = pygame.time.Clock()
         self.font_ui = pygame.font.SysFont("Arial", 14); self.font_title = pygame.font.SysFont("Arial", 18, bold=True); self.font_info = pygame.font.SysFont("Consolas", 12)
         
-        # --- MODIFIED: Pass assets_root to DataManager ---
+        # --- KEY CHANGE TO FIX IMPORT ERROR ---
+        # Import all classes that are instantiated here, inside the __init__ method.
+        # This breaks any potential circular dependencies by ensuring the 'app' module
+        # is fully loaded before these other modules are touched.
+        from data_manager import DataManager
+        from structure_editor import StructureEditor
+        from decoration_editor import DecorationEditor
+
         self.data_manager = DataManager(self.project_root, self.assets_root)
         self.camera = Camera()
         self.renderer = RoomRenderer(self.data_manager)
@@ -58,7 +65,6 @@ class App:
         self.file_buttons = {"new": btn_new, "load": btn_load, "save": btn_save, "save_as": btn_save_as}
 
         self.preview_rect = pygame.Rect(0, 0, PREVIEW_SIZE[0], PREVIEW_SIZE[1]); self.preview_rect.topright = (self.editor_rect.right - margin, self.editor_rect.top + margin); self.preview_surface = pygame.Surface(PREVIEW_SIZE)
-        # --- MODIFIED: Increased item preview size ---
         self.item_preview_rect = pygame.Rect(0, 0, 180, 180); self.item_preview_rect.topright = (self.preview_rect.right, self.preview_rect.bottom + 40); self.item_preview_surface = pygame.Surface((180,180), pygame.SRCALPHA)
 
         input_y = self.right_panel_rect.y + margin + 20
@@ -120,7 +126,6 @@ class App:
         pygame.draw.rect(self.screen, COLOR_TOP_BAR, self.top_bar_rect)
         pygame.draw.rect(self.screen, COLOR_PANEL_BG, self.right_panel_rect)
         
-        # --- MODIFIED: Pass camera zoom to the renderer ---
         self.renderer.draw_room_on_surface(self.editor_surface, self.current_room, self.camera.offset, self.camera.zoom, is_editor_view=True)
         self.active_editor.draw_on_editor(self.editor_surface)
         self.screen.blit(self.editor_surface, self.editor_rect)
@@ -128,7 +133,6 @@ class App:
         pygame.draw.rect(self.screen, COLOR_BORDER, self.editor_rect, 1)
         pygame.draw.rect(self.screen, COLOR_BORDER, self.right_panel_rect, 1)
 
-        # --- MODIFIED: Pass zoom=1.0 to preview so it doesn't zoom ---
         self.renderer.draw_room_on_surface(self.preview_surface, self.current_room, self.calculate_preview_offset(PREVIEW_SIZE), 1.0, is_editor_view=False)
         self.screen.blit(self.preview_surface, self.preview_rect)
         pygame.draw.rect(self.screen, COLOR_BORDER, self.preview_rect, 1)
@@ -151,7 +155,6 @@ class App:
     def draw_item_preview(self):
         self.item_preview_surface.fill(COLOR_TILE)
         preview_anchor_pos = (self.item_preview_rect.w / 2, self.item_preview_rect.h / 2)
-        # We pass the anchor as the offset to center grid(0,0) on it
         self.renderer._draw_iso_grid_on_surface(self.item_preview_surface, self.item_preview_surface.get_rect(), preview_anchor_pos)
         
         item_image, item_offset = self.decoration_editor.get_selected_item_image()
@@ -160,7 +163,6 @@ class App:
             img_w, img_h = item_image.get_size()
             box_w, box_h = self.item_preview_rect.size
             
-            # Scale image down if it's too big, preserving aspect ratio
             scale = 1.0
             if img_w > box_w or img_h > box_h:
                 scale = min(box_w / img_w, box_h / img_h)
@@ -172,7 +174,6 @@ class App:
                 final_image = pygame.transform.smoothscale(item_image, scaled_size)
                 final_offset = (item_offset[0] * scale, item_offset[1] * scale)
             
-            # Position using the item's own offset relative to the grid anchor
             draw_x = preview_anchor_pos[0] - final_offset[0]
             draw_y = preview_anchor_pos[1] - final_offset[1]
             self.item_preview_surface.blit(final_image, (draw_x, draw_y))
@@ -180,7 +181,6 @@ class App:
         self.screen.blit(self.item_preview_surface, self.item_preview_rect)
         pygame.draw.rect(self.screen, COLOR_BORDER, self.item_preview_rect, 1)
 
-        # --- MODIFIED: Dynamic title for item preview ---
         title_text = "Item Preview"
         if self.decoration_editor.selected_deco_item:
             title_text = self.decoration_editor.selected_deco_item.get('name', 'Item Preview')
@@ -188,7 +188,6 @@ class App:
         title_surf = self.font_title.render(title_text, True, COLOR_TITLE_TEXT)
         title_rect = title_surf.get_rect(topright=(self.item_preview_rect.right, self.item_preview_rect.bottom + 5))
         self.screen.blit(title_surf, title_rect)
-
 
     def run(self):
         running = True

@@ -33,15 +33,17 @@ class Room:
         for deco in self.decorations:
             self.occupied_tiles.add(tuple(deco.get("grid_pos")))
 
-    def add_decoration(self, base_id, color_id, grid_pos, rotation):
+    # --- MODIFIED: Renamed parameter to variant_id ---
+    def add_decoration(self, base_id, variant_id, grid_pos, rotation):
         """Añade una decoración si la casilla no está ocupada."""
         grid_pos_tuple = tuple(grid_pos)
         if grid_pos_tuple in self.occupied_tiles:
             print(f"[AVISO] No se puede colocar: la casilla {grid_pos_tuple} ya está ocupada.")
             return False
         
+        # --- MODIFIED: Use variant_id in the dictionary key ---
         self.decorations.append({
-            "base_id": base_id, "color_id": color_id,
+            "base_id": base_id, "variant_id": variant_id,
             "grid_pos": list(grid_pos), "rotation": rotation
         })
         self.occupied_tiles.add(grid_pos_tuple)
