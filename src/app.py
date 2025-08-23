@@ -48,6 +48,7 @@ class App:
         self.update_layout()
         self.load_initial_room()
 
+    # --- MÉTODO MODIFICADO ---
     def update_layout(self):
         margin = 15; btn_y = 5; btn_height = 30
         right_panel_width = self.win_width // 3 
@@ -59,10 +60,15 @@ class App:
         self.camera.editor_rect = self.editor_rect
         
         self.main_buttons = { "structure": Button(margin, btn_y, 140, btn_height, "Structure Editor", self.font_ui), "decorations": Button(margin + 150, btn_y, 140, btn_height, "Decorations Editor", self.font_ui) }
+        
+        # --- LÓGICA DE BOTONES DE ARCHIVO MODIFICADA ---
         btn_file_h = 25; btn_file_y = (TOP_BAR_HEIGHT - btn_file_h) // 2
-        btn_save_as = Button(self.win_width - margin - 90, btn_file_y, 90, btn_file_h, "Save As...", self.font_ui); btn_save = Button(btn_save_as.rect.left - 10 - 60, btn_file_y, 60, btn_file_h, "Save", self.font_ui)
-        btn_load = Button(btn_save.rect.left - 10 - 60, btn_file_y, 60, btn_file_h, "Load", self.font_ui); btn_new = Button(btn_load.rect.left - 10 - 60, btn_file_y, 60, btn_file_h, "New", self.font_ui)
-        self.file_buttons = {"new": btn_new, "load": btn_load, "save": btn_save, "save_as": btn_save_as}
+        btn_save_all = Button(self.win_width - margin - 90, btn_file_y, 90, btn_file_h, "Save All...", self.font_ui)
+        btn_load = Button(btn_save_all.rect.left - 10 - 60, btn_file_y, 60, btn_file_h, "Load", self.font_ui)
+        btn_new = Button(btn_load.rect.left - 10 - 60, btn_file_y, 60, btn_file_h, "New", self.font_ui)
+        self.file_buttons = {"new": btn_new, "load": btn_load, "save_all": btn_save_all}
+        # Se ha eliminado el botón "Save"
+        # --- FIN DE LA MODIFICACIÓN ---
 
         self.preview_rect = pygame.Rect(0, 0, PREVIEW_SIZE[0], PREVIEW_SIZE[1]); self.preview_rect.topright = (self.editor_rect.right - margin, self.editor_rect.top + margin); self.preview_surface = pygame.Surface(PREVIEW_SIZE)
         self.item_preview_rect = pygame.Rect(0, 0, 180, 180); self.item_preview_rect.topright = (self.preview_rect.right, self.preview_rect.bottom + 40); self.item_preview_surface = pygame.Surface((180,180), pygame.SRCALPHA)
@@ -90,9 +96,10 @@ class App:
         self.current_room = Room(structure_data, decoration_set_data)
         self.center_camera_on_room()
         self.update_anchor_offset_inputs()
-        decoration_set_name = os.path.basename(self.data_manager.current_decoration_set_path or "Untitled Decoration Set")
-        pygame.display.set_caption(f"Editor - {decoration_set_name}")
+        set_name = decoration_set_data.get("decoration_set_name", "Untitled Decoration Set")
+        pygame.display.set_caption(f"Editor - {set_name}")
 
+    # --- MÉTODO MODIFICADO ---
     def handle_events(self):
         mouse_pos = pygame.mouse.get_pos()
         keys = pygame.key.get_pressed()
@@ -113,10 +120,12 @@ class App:
             if self.main_buttons['structure'].is_clicked(event): self.main_mode = EDITOR_MODE_STRUCTURE; self.active_editor = self.structure_editor
             if self.main_buttons['decorations'].is_clicked(event): self.main_mode = EDITOR_MODE_DECORATIONS; self.active_editor = self.decoration_editor
             
+            # --- LÓGICA DE EVENTOS DE BOTONES DE ARCHIVO MODIFICADA ---
             if self.file_buttons['new'].is_clicked(event): self.create_new_room()
             if self.file_buttons['load'].is_clicked(event): self.load_file_for_current_mode()
-            if self.file_buttons['save'].is_clicked(event): self.save_all(save_as=False)
-            if self.file_buttons['save_as'].is_clicked(event): self.save_all(save_as=True)
+            if self.file_buttons['save_all'].is_clicked(event): self.save_all()
+            # Se ha eliminado el handler para 'save'
+            # --- FIN DE LA MODIFICACIÓN ---
             
             self.active_editor.handle_events(event, mouse_pos, local_mouse_pos, keys)
         return True
@@ -203,21 +212,28 @@ class App:
         self.set_new_room_data(new_structure, new_decoration_set)
 
     def load_file_for_current_mode(self):
-        start_dir = os.path.join(self.project_root, "rooms", "structures") if self.main_mode == EDITOR_MODE_STRUCTURE else os.path.join(self.project_root, "rooms", "decoration_sets")
+        start_dir = os.path.join(self.project_root, "rooms", "decoration_sets")
         s_data, d_data = self.data_manager.load_decoration_set_and_structure(initial_dir=start_dir)
         if s_data and d_data: self.set_new_room_data(s_data, d_data)
 
-    def save_all(self, save_as=False):
+    # --- MÉTODO MODIFICADO ---
+    def save_all(self):
         if not self.current_room: return
         
+        # Primero, actualizamos los diccionarios de datos con el estado actual del editor
         self.current_room.update_structure_data_from_internal()
         self.current_room.update_decoration_set_data_from_internal()
 
-        s_ok = self.data_manager.save_structure(self.current_room.structure_data, save_as)
-        if s_ok:
-            self.current_room.decoration_set_data['structure_id'] = self.current_room.structure_data['id']
-            d_ok, new_name = self.data_manager.save_decoration_set(self.current_room.decoration_set_data, save_as)
-            if d_ok: self.save_confirmation_timer = 120; pygame.display.set_caption(f"Editor - {new_name}")
+        # Luego, llamamos a la nueva función de guardado del DataManager
+        ok, new_name = self.data_manager.save_project_to_folder(
+            self.current_room.structure_data,
+            self.current_room.decoration_set_data
+        )
+
+        if ok:
+            self.save_confirmation_timer = 120
+            new_caption = new_name.replace('_', ' ').title() if new_name else "Project"
+            pygame.display.set_caption(f"Editor - {new_caption}")
 
     def center_camera_on_room(self):
         if not self.current_room or not self.editor_rect.w or not self.editor_rect.h: return
@@ -239,7 +255,7 @@ class App:
         if self.save_confirmation_timer > 0:
             self.save_confirmation_timer -= 1
             surf = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
-            text_surf = self.font_title.render("Files Saved!", True, COLOR_TEXT)
+            text_surf = self.font_title.render("Project Saved!", True, COLOR_TEXT) # Texto actualizado
             bg_rect = text_surf.get_rect(center=self.editor_rect.center).inflate(30, 20)
             pygame.draw.rect(surf, COLOR_SAVE_CONFIRM_BG, bg_rect, border_radius=8)
             self.screen.blit(surf, (0, 0)); self.screen.blit(text_surf, text_surf.get_rect(center=self.editor_rect.center))
