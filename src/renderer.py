@@ -1,5 +1,4 @@
 # src/renderer.py
-
 import pygame
 import os
 from common.constants import *
@@ -11,18 +10,12 @@ class RoomRenderer:
 
     def draw_room_on_surface(self, surface, room, camera_offset, is_editor_view=True):
         surface.fill(COLOR_EDITOR_BG if is_editor_view else COLOR_PREVIEW_BG)
-        
-        if is_editor_view:
-            self._draw_iso_grid_on_surface(surface, surface.get_rect(), camera_offset)
-
+        if is_editor_view: self._draw_iso_grid_on_surface(surface, surface.get_rect(), camera_offset)
         if not room: return
-        
         origin_pos = grid_to_screen(0, 0, camera_offset)
         pygame.draw.line(surface, COLOR_ORIGIN, (origin_pos[0] - 10, origin_pos[1]), (origin_pos[0] + 10, origin_pos[1]), 1)
         pygame.draw.line(surface, COLOR_ORIGIN, (origin_pos[0], origin_pos[1] - 10), (origin_pos[0], origin_pos[1] + 10), 1)
-
         sorted_tiles = sorted(room.tiles.keys(), key=lambda k: (k[1] + k[0], k[1] - k[0]))
-
         for gx, gy in sorted_tiles:
             screen_pos = grid_to_screen(gx, gy, camera_offset)
             self._draw_tile_shape(surface, screen_pos, room.tiles[(gx, gy)], COLOR_TILE, COLOR_TILE_BORDER)
@@ -31,10 +24,8 @@ class RoomRenderer:
                 if pos == (gx, gy):
                     screen_pos = grid_to_screen(gx, gy, camera_offset)
                     self._draw_wall(surface, screen_pos, edge)
-
         for deco in room.get_decorations_sorted_for_render():
             self._draw_decoration(surface, deco, camera_offset)
-
         if is_editor_view:
             anchor_pos = (room.structure_data["renderAnchor"]["x"] + camera_offset[0], room.structure_data["renderAnchor"]["y"] + camera_offset[1])
             pygame.draw.circle(surface, COLOR_ANCHOR, anchor_pos, 5); pygame.draw.line(surface, COLOR_ANCHOR, (anchor_pos[0] - 8, anchor_pos[1]), (anchor_pos[0] + 8, anchor_pos[1]), 1); pygame.draw.line(surface, COLOR_ANCHOR, (anchor_pos[0], anchor_pos[1] - 8), (anchor_pos[0], anchor_pos[1] + 8), 1)
@@ -48,13 +39,11 @@ class RoomRenderer:
         corners_grid = [screen_to_grid(0, 0, offset), screen_to_grid(view_rect.w, 0, offset), screen_to_grid(view_rect.w, view_rect.h, offset), screen_to_grid(0, view_rect.h, offset)]
         min_gx, max_gx = min(c[0] for c in corners_grid) - 1, max(c[0] for c in corners_grid) + 2
         min_gy, max_gy = min(c[1] for c in corners_grid) - 1, max(c[1] for c in corners_grid) + 2
-        
         for gy in range(min_gy, max_gy):
             for gx in range(min_gx, max_gx):
                 screen_pos = grid_to_screen(gx, gy, offset)
                 p = self._get_tile_points(screen_pos)
-                points = [p['top'], p['right'], p['bottom'], p['left']]
-                pygame.draw.polygon(surface, COLOR_GRID, points, 1)
+                pygame.draw.polygon(surface, COLOR_GRID, [p['top'], p['right'], p['bottom'], p['left']], 1)
 
     def _get_tile_points(self, pos):
         return {"top": (pos[0] + TILE_WIDTH_HALF, pos[1]), "right": (pos[0] + TILE_WIDTH, pos[1] + TILE_HEIGHT_HALF), "bottom": (pos[0] + TILE_WIDTH_HALF, pos[1] + TILE_HEIGHT), "left": (pos[0], pos[1] + TILE_HEIGHT_HALF)}
@@ -63,9 +52,7 @@ class RoomRenderer:
         p = self._get_tile_points(pos)
         points_map = { TILE_TYPE_FULL: [p['top'], p['right'], p['bottom'], p['left']], TILE_TYPE_CORNER_NO_TL: [p['top'], p['right'], p['bottom']], TILE_TYPE_CORNER_NO_TR: [p['top'], p['bottom'], p['left']], TILE_TYPE_CORNER_NO_BR: [p['top'], p['right'], p['left']], TILE_TYPE_CORNER_NO_BL: [p['right'], p['bottom'], p['left']] }
         points = points_map.get(tile_type)
-        if points:
-            pygame.draw.polygon(surf, fill_color, points)
-            pygame.draw.polygon(surf, border_color, points, 2)
+        if points: pygame.draw.polygon(surf, fill_color, points); pygame.draw.polygon(surf, border_color, points, 2)
 
     def _draw_wall(self, surf, screen_pos, edge):
         p = self._get_tile_points(screen_pos)
@@ -73,41 +60,40 @@ class RoomRenderer:
         p1, p2 = edge_points.get(edge, (None, None))
         if p1 and p2:
             wall_points = [p1, p2, (p2[0], p2[1] - WALL_HEIGHT), (p1[0], p1[1] - WALL_HEIGHT)]
-            pygame.draw.polygon(surf, COLOR_WALL, wall_points)
-            pygame.draw.polygon(surf, COLOR_WALL_BORDER, wall_points, 2)
-            
+            pygame.draw.polygon(surf, COLOR_WALL, wall_points); pygame.draw.polygon(surf, COLOR_WALL_BORDER, wall_points, 2)
+
+    # --- REFACTORED FUNCTION ---
     def get_rendered_image_and_offset(self, base_id, color_id, rotation):
-        if base_id is None or color_id is None or rotation is None: 
+        """
+        Gets a furni's image and offset using the final unified data.
+        Returns (pygame.Surface | None, tuple | None).
+        """
+        if not all((base_id, color_id, rotation is not None)):
+            return None, None
+            
+        furni_data = self.data_manager.get_furni_data(base_id)
+        if not furni_data:
             return None, None
 
-        direction = DECO_ROTATION_MAP[rotation % 4]
-        render_data = self.data_manager.load_render_data(base_id)
-
-        def get_fallback_offset(image):
-            return (image.get_width() // 2, image.get_height())
-
-        def get_data_for_path(filename_base, path):
-            image = self.data_manager.get_image(path)
+        try:
+            # Direct and fast access to the processed data
+            variant = furni_data["variants"][str(color_id)]
+            render_info = variant["renders"][str(rotation)]
+            
+            image_path = render_info["path"]
+            offset_data = render_info["offset"]
+            
+            # Use the new DataManager method to get the image
+            image = self.data_manager.get_image(base_id, image_path)
+            
             if image:
-                if render_data and filename_base in render_data:
-                    offset_data = render_data[filename_base]
-                    return image, (offset_data['X'], offset_data['Y'])
-                else: 
-                    return image, get_fallback_offset(image)
-            return None, None
-
-        filename_base_color = f"{base_id}_dir_{direction}_{color_id}_no_sd"
-        path_color = os.path.join("furnis", base_id, "rendered", filename_base_color + ".png").replace("\\", "/")
-        image, offset = get_data_for_path(filename_base_color, path_color)
-        if image:
-            return image, offset
-
-        filename_base_default = f"{base_id}_dir_{direction}_no_sd"
-        path_default = os.path.join("furnis", base_id, "rendered", filename_base_default + ".png").replace("\\", "/")
-        image, offset = get_data_for_path(filename_base_default, path_default)
-        if image:
-            return image, offset
-        
+                return image, (offset_data['x'], offset_data['y'])
+            
+        except KeyError:
+            # This color variant or rotation doesn't exist in the data.
+            # This is an expected miss, not an error.
+            pass
+            
         return None, None
 
     def _draw_decoration(self, surface, deco_data, camera_offset, is_ghost=False, is_occupied=False):
@@ -116,16 +102,16 @@ class RoomRenderer:
         
         image, offset = self.get_rendered_image_and_offset(base_id, color_id, rotation)
         if not image or not offset:
+            # Draw a placeholder if the image is not found
+            screen_pos = grid_to_screen(grid_pos[0], grid_pos[1], camera_offset)
+            center_x = screen_pos[0] + TILE_WIDTH_HALF
+            center_y = screen_pos[1] + TILE_HEIGHT_HALF
+            pygame.draw.circle(surface, (255, 0, 255), (center_x, center_y), 8)
             return
 
         screen_pos = grid_to_screen(grid_pos[0], grid_pos[1], camera_offset)
-        
         anchor_x = screen_pos[0] + TILE_WIDTH_HALF
-        # <-- INICIO DE LA CORRECCIÓN -->
-        # El ancla es la línea central horizontal de la tile, no su punto más bajo.
         anchor_y = screen_pos[1] + TILE_HEIGHT_HALF
-        # <-- FIN DE LA CORRECCIÓN -->
-
         draw_x = anchor_x - offset[0]
         draw_y = anchor_y - offset[1]
 

@@ -1,5 +1,4 @@
 # src/decoration_editor.py
-
 import pygame
 import math
 import os
@@ -66,23 +65,16 @@ class DecorationEditor:
         base_id = self.selected_deco_item.get("base_id"); color_id = self.selected_deco_item.get("color_id", "0")
         for i in range(1, 5):
             next_rotation_idx = (self.ghost_rotation + i) % 4
-            # CAMBIO SUTIL: Aquí también usamos el nuevo método, pero solo nos importa si la imagen existe
             image, _ = self.app.renderer.get_rendered_image_and_offset(base_id, color_id, next_rotation_idx)
             if image is not None:
-                self.ghost_rotation = next_rotation_idx; print(f"[LOG] Fantasma rotado a índice: {self.ghost_rotation} (Sprite Dir: {DECO_ROTATION_MAP[self.ghost_rotation]})"); return
-        print(f"[AVISO] No se encontraron otras rotaciones válidas para '{base_id}'.")
-
+                self.ghost_rotation = next_rotation_idx; return
+    
     def delete_decoration_at(self, grid_pos):
         if self.app.current_room: self.app.current_room.remove_decoration_at(grid_pos)
 
     def place_decoration(self, grid_pos):
         if not self.selected_deco_item or not self.app.current_room: return
-        self.app.current_room.add_decoration(
-            self.selected_deco_item['base_id'],
-            self.selected_deco_item['color_id'],
-            grid_pos,
-            self.ghost_rotation
-        )
+        self.app.current_room.add_decoration(self.selected_deco_item['base_id'], self.selected_deco_item['color_id'], grid_pos, self.ghost_rotation)
         
     def perform_search(self): self.active_search_term = self.search_input.text.lower().strip(); self.scroll_y = 0
     def clamp_scroll(self): max_scroll = self.content_height - (self.panel_rect.height - self.search_input.rect.height - 20); self.scroll_y = max(0, min(self.scroll_y, max(0, max_scroll)))
@@ -101,35 +93,18 @@ class DecorationEditor:
                 elif elem_type == 'item': self.selected_deco_item = elem_id; self.ghost_rotation = 0
                 return
 
-    # <-- INICIO DEL CAMBIO -->
     def get_selected_item_image(self):
-        """Obtiene solo la imagen del objeto seleccionado para la vista previa."""
-        if not self.selected_deco_item:
-            return None
-        
-        # Llama al nuevo método que devuelve (imagen, offset)
-        image, _ = self.app.renderer.get_rendered_image_and_offset(
-            self.selected_deco_item.get("base_id"), 
-            self.selected_deco_item.get("color_id"), 
-            self.ghost_rotation
-        )
-        
-        # Devuelve solo la imagen, que es lo que esta función necesita
+        if not self.selected_deco_item: return None
+        image, _ = self.app.renderer.get_rendered_image_and_offset(self.selected_deco_item.get("base_id"), self.selected_deco_item.get("color_id"), self.ghost_rotation)
         return image
-    # <-- FIN DEL CAMBIO -->
 
     def draw_on_editor(self, surface):
         if self.selected_deco_item and self.app.editor_rect.collidepoint(pygame.mouse.get_pos()) and self.app.current_room:
-            ghost_data = {
-                "base_id": self.selected_deco_item.get("base_id"),
-                "color_id": self.selected_deco_item.get("color_id", "0"),
-                "grid_pos": self.ghost_pos,
-                "rotation": self.ghost_rotation
-            }
+            ghost_data = {"base_id": self.selected_deco_item.get("base_id"), "color_id": self.selected_deco_item.get("color_id", "0"), "grid_pos": self.ghost_pos, "rotation": self.ghost_rotation}
             is_occupied = tuple(self.ghost_pos) in self.app.current_room.occupied_tiles
             self.app.renderer._draw_decoration(surface, ghost_data, self.app.camera.offset, is_ghost=True, is_occupied=is_occupied)
 
-    def get_info_lines(self): return ["[Clic Izq] Colocar Objeto", "[Clic Der] Eliminar Objeto", "[R] Rotar Fantasma", "[Esc] Deseleccionar"]
+    def get_info_lines(self): return ["[Left Click] Place Item", "[Right Click] Delete Item", "[R] Rotate Ghost", "[Esc] Deselect"]
 
     def draw_ui_on_panel(self, screen):
         pygame.draw.rect(screen, COLOR_PANEL_BG, self.panel_rect); self.draw_content()
@@ -139,7 +114,7 @@ class DecorationEditor:
         bg_rect = self.search_button.rect.union(self.search_input.rect).inflate(20, 20); pygame.draw.rect(screen, COLOR_PANEL_BG, bg_rect)
         self.search_button.draw(screen); self.draw_search_icon(screen, self.search_button.rect)
         self.search_input.update(); self.search_input.draw(screen)
-        if not self.search_input.text and not self.search_input.active: screen.blit(self.app.font_ui.render("Buscar objetos...", True, COLOR_INFO_TEXT), (self.search_input.rect.x + 8, self.search_input.rect.y + 6))
+        if not self.search_input.text and not self.search_input.active: screen.blit(self.app.font_ui.render("Search items...", True, COLOR_INFO_TEXT), (self.search_input.rect.x + 8, self.search_input.rect.y + 6))
         pygame.draw.rect(screen, COLOR_BORDER, self.panel_rect, 1); self.draw_scrollbar(screen)
 
     def draw_search_icon(self, screen, rect):
@@ -158,7 +133,7 @@ class DecorationEditor:
                 for item in sub_cat.get("items", []):
                     if self.active_search_term in item['name'].lower() and item['id'] not in processed_ids: search_results.append(item); processed_ids.add(item['id'])
         margin = 10; has_scrollbar = self.content_height > self.panel_rect.height; content_width = self.panel_rect.width - margin * 2 - (self.scrollbar_track_rect.width if has_scrollbar else 0)
-        if not search_results: msg_surf = self.font_ui.render(f"No hay resultados para '{self.active_search_term}'", True, COLOR_INFO_TEXT); self.content_surface.blit(msg_surf, msg_surf.get_rect(centerx=self.panel_rect.width / 2, y=20)); return 60
+        if not search_results: msg_surf = self.font_ui.render(f"No results for '{self.active_search_term}'", True, COLOR_INFO_TEXT); self.content_surface.blit(msg_surf, msg_surf.get_rect(centerx=self.panel_rect.width / 2, y=20)); return 60
         return self.draw_item_grid(search_results, margin, 10, content_width)
 
     def draw_catalog_view(self):
@@ -178,7 +153,10 @@ class DecorationEditor:
         for k, item in enumerate(items):
             item_rect = pygame.Rect(start_x + (k % cols) * (icon_size + padding), start_y + (k // cols) * (icon_size + 30 + padding), icon_size, icon_size)
             self.clickable_elements.append({'rect': pygame.Rect(item_rect.x, item_rect.y, icon_size, icon_size + 30), 'type': 'item', 'id': item})
-            icon_img = self.app.data_manager.get_image(item['icon_path'])
+            
+            # --- MODIFIED: Call the new get_image method correctly ---
+            icon_img = self.app.data_manager.get_image(item['base_id'], item['icon_path'])
+            
             if icon_img: pygame.draw.rect(self.content_surface, COLOR_EDITOR_BG, item_rect, border_radius=5); img_s = pygame.transform.scale(icon_img, (icon_size - 8, icon_size - 8)); self.content_surface.blit(img_s, img_s.get_rect(center=item_rect.center))
             is_selected = self.selected_deco_item and self.selected_deco_item['id'] == item['id']; pygame.draw.rect(self.content_surface, COLOR_HOVER_BORDER if is_selected else COLOR_BORDER, item_rect, 2 if is_selected else 1, border_radius=5)
             item_name_y = item_rect.bottom + 4; words = item['name'].split(' '); line = ""

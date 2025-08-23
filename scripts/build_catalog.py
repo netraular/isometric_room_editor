@@ -3,39 +3,38 @@ import os
 import json
 import re
 
-# --- CONFIGURACIÓN DE RUTAS ---
+# --- PATH CONFIGURATION ---
+# The root of the 'isometric_room_editor' project
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# <-- CAMBIO: Ya no necesitamos furnidata.json -->
-# FURNIDATA_PATH = os.path.join(PROJECT_ROOT, "assets", "furnidata.json")
+# --- MODIFIED: Path to the sibling pipeline project ---
+PIPELINE_PROJECT_ROOT = os.path.join(PROJECT_ROOT, "..", "habbo-furni-asset-pipeline")
+FINAL_DATA_DIR = os.path.join(PIPELINE_PROJECT_ROOT, "assets", "4_final_furni_data")
 
+# These paths are relative to the 'isometric_room_editor' project
 CATALOG_STRUCT_PATH = os.path.join(PROJECT_ROOT, "assets", "catalog_structure.json")
 CATALOG_OUTPUT_FILE = os.path.join(PROJECT_ROOT, "assets", "catalog.json")
-FURNIS_SUBDIR_IN_ASSETS = "furnis"
-FURNIS_OUTPUT_DIR = os.path.join(PROJECT_ROOT, "assets", FURNIS_SUBDIR_IN_ASSETS)
-# -----------------------------------
 
 def build_structured_catalog():
     """
-    Construye el archivo catalog.json final.
-    NO DEPENDE de furnidata.json. Usa el item_id como nombre.
+    Builds the final catalog.json file.
+    It uses the 'data.json' files from the pipeline's '4_final_furni_data'
+    directory to get names and filter items.
     """
     if not os.path.exists(CATALOG_STRUCT_PATH):
-        print(f"Error: No se encontró catalog_structure.json en {CATALOG_STRUCT_PATH}")
+        print(f"Error: catalog_structure.json not found at {CATALOG_STRUCT_PATH}")
         return
     
-    # <-- CAMBIO: Se eliminan las comprobaciones y la carga de furnidata.json -->
-    
-    if not os.path.exists(FURNIS_OUTPUT_DIR):
-        print(f"Error: El directorio de furnis '{FURNIS_OUTPUT_DIR}' no existe.")
-        print("Asegúrate de que el programa extractor de C# esté configurado para guardar en esa ruta.")
+    if not os.path.exists(FINAL_DATA_DIR):
+        print(f"Error: The final data directory '{FINAL_DATA_DIR}' does not exist.")
+        print("Please ensure the pipeline project is a sibling to this project and has been run completely.")
         return
 
     with open(CATALOG_STRUCT_PATH, 'r', encoding='utf-8') as f:
         catalog_structure = json.load(f)
 
-    print(f"Construyendo catálogo desde '{CATALOG_STRUCT_PATH}'...")
-    print(f"Verificando assets en '{FURNIS_OUTPUT_DIR}'...")
+    print(f"Building catalog from '{CATALOG_STRUCT_PATH}'...")
+    print(f"Verifying final data in '{FINAL_DATA_DIR}'...")
     
     final_catalog = {"categories": []}
     items_processed = 0
@@ -47,63 +46,58 @@ def build_structured_catalog():
             final_sub_cat = { "name": sub_cat_data.get("name"), "items": [] }
             
             for item_id in sub_cat_data.get("items", []):
-                
-                # Lógica para parsear el ID (se mantiene igual)
                 match = re.match(r'^(.*?)_(\d+)$', item_id)
-                if match:
-                    base_id, color_id = match.groups()
-                else:
-                    base_id = item_id
-                    color_id = "0"
+                base_id, color_id = match.groups() if match else (item_id, "0")
 
-                # <-- INICIO DEL CAMBIO PRINCIPAL -->
-                # 1. Usar el ID del ítem como su nombre. No se necesita furnidata.json.
-                item_name = item_id
-                # <-- FIN DEL CAMBIO PRINCIPAL -->
-
-                # 2. Verificar que el furni fue extraído y existe la carpeta
-                furni_dir_absolute = os.path.join(FURNIS_OUTPUT_DIR, base_id)
-                if not os.path.isdir(furni_dir_absolute):
-                    print(f"  ! Aviso: No se encontró la carpeta para '{base_id}' en '{FURNIS_OUTPUT_DIR}'. Omitiendo ítem '{item_id}'.")
-                    items_skipped += 1
-                    continue
-
-                # 3. Buscar el archivo del icono
-                icon_filename_with_color = f"{base_id}_icon_{color_id}.png"
-                icon_filename_no_color = f"{base_id}_icon.png"
-                
-                final_icon_path_relative = ""
-                if os.path.exists(os.path.join(furni_dir_absolute, icon_filename_with_color)):
-                    final_icon_path_relative = os.path.join(FURNIS_SUBDIR_IN_ASSETS, base_id, icon_filename_with_color)
-                elif os.path.exists(os.path.join(furni_dir_absolute, icon_filename_no_color)):
-                    final_icon_path_relative = os.path.join(FURNIS_SUBDIR_IN_ASSETS, base_id, icon_filename_no_color)
-                
-                if not final_icon_path_relative:
-                    print(f"  ! Aviso: Icono no encontrado para '{item_id}' dentro de '{furni_dir_absolute}'. Omitiendo.")
+                final_data_path = os.path.join(FINAL_DATA_DIR, base_id, "data.json")
+                if not os.path.exists(final_data_path):
                     items_skipped += 1
                     continue
                 
-                # 4. Construir el objeto final del ítem
+                try:
+                    with open(final_data_path, 'r', encoding='utf-8') as f:
+                        final_data = json.load(f)
+                    
+                    variant_data = final_data.get("variants", {}).get(color_id)
+                    if not variant_data:
+                        items_skipped += 1
+                        continue
+
+                    # The catalog item name is the specific variant name
+                    item_name = variant_data.get("name", item_id)
+                    
+                    # The icon path is relative to the furni package, which is what we need
+                    final_icon_path_relative = variant_data.get("icon_path", "")
+
+                    if not final_icon_path_relative:
+                        items_skipped += 1
+                        continue
+                        
+                except (json.JSONDecodeError, KeyError):
+                    items_skipped += 1
+                    continue
+                
                 final_sub_cat["items"].append({
-                    "id": item_id,
-                    "name": item_name, # Ahora es igual a item_id
+                    "id": item_id, 
+                    "name": item_name, 
                     "base_id": base_id,
-                    "color_id": color_id,
-                    "icon_path": final_icon_path_relative.replace(os.sep, '/')
+                    "color_id": color_id, 
+                    "icon_path": final_icon_path_relative
                 })
                 items_processed += 1
             
-            final_main_cat["subcategories"].append(final_sub_cat)
+            if final_sub_cat["items"]:
+                final_main_cat["subcategories"].append(final_sub_cat)
         
-        final_catalog["categories"].append(final_main_cat)
+        if final_main_cat["subcategories"]:
+            final_catalog["categories"].append(final_main_cat)
 
     with open(CATALOG_OUTPUT_FILE, 'w', encoding='utf-8') as f:
         json.dump(final_catalog, f, indent=2)
 
-    print(f"\n¡Catálogo estructurado construido! Guardado en {CATALOG_OUTPUT_FILE}")
-    print(f"  - Items procesados correctamente: {items_processed}")
-    print(f"  - Items omitidos (ver avisos):   {items_skipped}")
-
+    print(f"\nStructured catalog built successfully! Saved to {CATALOG_OUTPUT_FILE}")
+    print(f"  - Items added to catalog: {items_processed}")
+    print(f"  - Items skipped (not found in final data): {items_skipped}")
 
 if __name__ == "__main__":
     build_structured_catalog()

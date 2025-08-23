@@ -6,7 +6,7 @@ import sys
 import os
 from common.constants import *
 from common.ui import Button, TextInputBox
-from common.utils import grid_to_screen # Necesario para el anchor
+from common.utils import grid_to_screen # Needed for anchor
 from data_manager import DataManager
 from structure_editor import StructureEditor
 from decoration_editor import DecorationEditor
@@ -15,17 +15,19 @@ from camera import Camera
 from renderer import RoomRenderer
 
 class App:
-    def __init__(self, project_root):
+    # --- MODIFIED: Accept assets_root in the constructor ---
+    def __init__(self, project_root, assets_root):
         pygame.init()
         self.project_root = project_root
+        self.assets_root = assets_root # Store the assets path
         self.win_width, self.win_height = INITIAL_WIN_WIDTH, INITIAL_WIN_HEIGHT
         self.screen = pygame.display.set_mode((self.win_width, self.win_height), pygame.RESIZABLE)
         pygame.display.set_caption("Isometric Room Editor")
         self.clock = pygame.time.Clock()
         self.font_ui = pygame.font.SysFont("Arial", 14); self.font_title = pygame.font.SysFont("Arial", 18, bold=True); self.font_info = pygame.font.SysFont("Consolas", 12)
         
-        # --- MODIFICADO: Instanciación de componentes ---
-        self.data_manager = DataManager(self.project_root)
+        # --- MODIFIED: Pass assets_root to DataManager ---
+        self.data_manager = DataManager(self.project_root, self.assets_root)
         self.camera = Camera()
         self.renderer = RoomRenderer(self.data_manager)
         self.current_room = None
@@ -47,7 +49,6 @@ class App:
         self.editor_rect = pygame.Rect(0, TOP_BAR_HEIGHT, self.win_width - right_panel_width, self.win_height - TOP_BAR_HEIGHT)
         self.editor_surface = pygame.Surface(self.editor_rect.size, pygame.SRCALPHA)
         
-        # --- MODIFICADO: Actualizar el rect de la cámara ---
         self.camera.editor_rect = self.editor_rect
         
         self.main_buttons = { "structure": Button(margin, btn_y, 140, btn_height, "Structure Editor", self.font_ui), "decorations": Button(margin + 150, btn_y, 140, btn_height, "Decorations Editor", self.font_ui) }
@@ -79,7 +80,6 @@ class App:
         else: self.create_new_room()
 
     def set_new_room_data(self, structure_data, decoration_set_data):
-        # --- MODIFICADO: Usar la clase Room ---
         self.current_room = Room(structure_data, decoration_set_data)
         self.center_camera_on_room()
         self.update_anchor_offset_inputs()
@@ -97,7 +97,6 @@ class App:
             if event.type == pygame.QUIT: return False
             if event.type == pygame.VIDEORESIZE: self.win_width, self.win_height = event.size; self.screen = pygame.display.set_mode((self.win_width, self.win_height), pygame.RESIZABLE); self.update_layout()
             
-            # --- MODIFICADO: Delegar eventos a la cámara ---
             self.camera.handle_event(event, mouse_pos)
             
             if self.main_mode == EDITOR_MODE_STRUCTURE:
@@ -120,16 +119,13 @@ class App:
         pygame.draw.rect(self.screen, COLOR_TOP_BAR, self.top_bar_rect)
         pygame.draw.rect(self.screen, COLOR_PANEL_BG, self.right_panel_rect)
         
-        # --- MODIFICADO: Delegar dibujado al renderer ---
         self.renderer.draw_room_on_surface(self.editor_surface, self.current_room, self.camera.offset, is_editor_view=True)
-        # El editor activo dibuja sus elementos específicos (como el fantasma o el hover) encima
         self.active_editor.draw_on_editor(self.editor_surface)
         self.screen.blit(self.editor_surface, self.editor_rect)
 
         pygame.draw.rect(self.screen, COLOR_BORDER, self.editor_rect, 1)
         pygame.draw.rect(self.screen, COLOR_BORDER, self.right_panel_rect, 1)
 
-        # --- MODIFICADO: Delegar dibujado del preview ---
         self.renderer.draw_room_on_surface(self.preview_surface, self.current_room, self.calculate_preview_offset(PREVIEW_SIZE), is_editor_view=False)
         self.screen.blit(self.preview_surface, self.preview_rect)
         pygame.draw.rect(self.screen, COLOR_BORDER, self.preview_rect, 1)
@@ -171,7 +167,7 @@ class App:
         running = True
         try:
             while running: running = self.handle_events(); self.draw(); self.clock.tick(60)
-        except KeyboardInterrupt: print("\nEditor cerrado con Ctrl+C.")
+        except KeyboardInterrupt: print("\nEditor closed with Ctrl+C.")
         finally: pygame.quit()
     
     def create_new_room(self):
@@ -188,7 +184,6 @@ class App:
     def save_all(self, save_as=False):
         if not self.current_room: return
         
-        # --- MODIFICADO: Usar métodos de Room para actualizar los datos ---
         self.current_room.update_structure_data_from_internal()
         self.current_room.update_decoration_set_data_from_internal()
 
@@ -205,8 +200,8 @@ class App:
 
     def draw_info_box(self, mode_specific_lines):
         margin, padding, line_height = 15, 8, 15
-        base_lines = ["Controles:", "[Rueda Media] Mover Vista"]
-        if self.main_mode == EDITOR_MODE_STRUCTURE: base_lines.append("[Shift+Click] Poner Ancla")
+        base_lines = ["Controls:", "[Middle Mouse] Pan View"]
+        if self.main_mode == EDITOR_MODE_STRUCTURE: base_lines.append("[Shift+Click] Set Anchor")
         info_lines = base_lines[:1] + mode_specific_lines + base_lines[1:]
         rendered_lines = [self.font_info.render(line, True, COLOR_INFO_TEXT) for line in info_lines]
         box_w = max(line.get_width() for line in rendered_lines) + padding * 2; box_h = len(info_lines) * line_height + padding * 2
@@ -218,7 +213,7 @@ class App:
         if self.save_confirmation_timer > 0:
             self.save_confirmation_timer -= 1
             surf = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
-            text_surf = self.font_title.render("¡Archivos Guardados!", True, COLOR_TEXT)
+            text_surf = self.font_title.render("Files Saved!", True, COLOR_TEXT)
             bg_rect = text_surf.get_rect(center=self.editor_rect.center).inflate(30, 20)
             pygame.draw.rect(surf, COLOR_SAVE_CONFIRM_BG, bg_rect, border_radius=8)
             self.screen.blit(surf, (0, 0)); self.screen.blit(text_surf, text_surf.get_rect(center=self.editor_rect.center))
