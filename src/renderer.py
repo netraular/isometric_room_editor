@@ -43,7 +43,9 @@ class RoomRenderer:
             for gx in range(min_gx, max_gx):
                 screen_pos = grid_to_screen(gx, gy, offset)
                 p = self._get_tile_points(screen_pos)
-                pygame.draw.polygon(surface, COLOR_GRID, [p['top'], p['right'], p['bottom'], p['left']], 1)
+                # --- LÍNEA MODIFICADA ---
+                # Se utiliza aalines para un dibujado suavizado (anti-aliasing) y consistente.
+                pygame.draw.aalines(surface, COLOR_GRID, True, [p['top'], p['right'], p['bottom'], p['left']])
 
     def _get_tile_points(self, pos):
         return {"top": (pos[0] + TILE_WIDTH_HALF, pos[1]), "right": (pos[0] + TILE_WIDTH, pos[1] + TILE_HEIGHT_HALF), "bottom": (pos[0] + TILE_WIDTH_HALF, pos[1] + TILE_HEIGHT), "left": (pos[0], pos[1] + TILE_HEIGHT_HALF)}
@@ -52,7 +54,11 @@ class RoomRenderer:
         p = self._get_tile_points(pos)
         points_map = { TILE_TYPE_FULL: [p['top'], p['right'], p['bottom'], p['left']], TILE_TYPE_CORNER_NO_TL: [p['top'], p['right'], p['bottom']], TILE_TYPE_CORNER_NO_TR: [p['top'], p['bottom'], p['left']], TILE_TYPE_CORNER_NO_BR: [p['top'], p['right'], p['left']], TILE_TYPE_CORNER_NO_BL: [p['right'], p['bottom'], p['left']] }
         points = points_map.get(tile_type)
-        if points: pygame.draw.polygon(surf, fill_color, points); pygame.draw.polygon(surf, border_color, points, 2)
+        if points:
+            pygame.draw.polygon(surf, fill_color, points)
+            # --- LÍNEA MODIFICADA ---
+            # Se utiliza aalines para dibujar el borde con anti-aliasing, eliminando la inconsistencia de grosor.
+            pygame.draw.aalines(surf, border_color, True, points)
 
     def _draw_wall(self, surf, screen_pos, edge):
         p = self._get_tile_points(screen_pos)
