@@ -27,6 +27,8 @@ class DecorationEditor:
         self.search_input = None
         self.search_button = None
         self.ghost_pos = (0, 0)
+        # --- MODIFIED: Added hover_grid_pos to store the tile under the mouse ---
+        self.hover_grid_pos = None 
         self.ghost_rotation = 0
         self.panel_rect = pygame.Rect(0, 0, 0, 0)
         self.content_surface = None
@@ -85,8 +87,14 @@ class DecorationEditor:
                 if scrollable_px_range > 0:
                     self.scroll_y = self.scroll_start_scroll_y + delta_y * (scrollable_content_range / scrollable_px_range)
                     self.clamp_scroll()
-            if self.selected_deco_item and self.app.editor_rect.collidepoint(mouse_pos):
-                self.ghost_pos = screen_to_grid(local_mouse_pos[0], local_mouse_pos[1], self.app.camera.offset)
+            
+            # --- MODIFIED: Always calculate hover position when mouse is on editor ---
+            if self.app.editor_rect.collidepoint(mouse_pos) and not self.app.camera.is_panning:
+                self.hover_grid_pos = screen_to_grid(local_mouse_pos[0], local_mouse_pos[1], self.app.camera.offset)
+                if self.selected_deco_item:
+                    self.ghost_pos = self.hover_grid_pos
+            else:
+                self.hover_grid_pos = None
         
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
@@ -140,12 +148,18 @@ class DecorationEditor:
 
     def get_selected_item_image(self):
         if not self.selected_deco_item:
-            return None
-        image, _ = self.app.renderer.get_rendered_image_and_offset(self.selected_deco_item.get("base_id"), self.selected_deco_item.get("color_id"), self.ghost_rotation)
-        return image
+            return None, None
+        image, offset = self.app.renderer.get_rendered_image_and_offset(self.selected_deco_item.get("base_id"), self.selected_deco_item.get("color_id"), self.ghost_rotation)
+        return image, offset
 
     def draw_on_editor(self, surface):
-        if self.selected_deco_item and self.app.editor_rect.collidepoint(pygame.mouse.get_pos()) and self.app.current_room:
+        # --- MODIFIED: Draw the yellow highlight for the hovered tile ---
+        if self.hover_grid_pos:
+            hover_screen_pos = grid_to_screen(*self.hover_grid_pos, self.app.camera.offset)
+            p = self.app.renderer._get_tile_points(hover_screen_pos)
+            pygame.draw.polygon(surface, COLOR_HOVER_BORDER, [p['top'], p['right'], p['bottom'], p['left']], 3)
+
+        if self.selected_deco_item and self.app.current_room and self.hover_grid_pos:
             ghost_data = {
                 "base_id": self.selected_deco_item.get("base_id"),
                 "color_id": self.selected_deco_item.get("color_id", "0"),
@@ -243,8 +257,18 @@ class DecorationEditor:
             
             if icon_img:
                 pygame.draw.rect(self.content_surface, COLOR_EDITOR_BG, item_rect, border_radius=5)
-                img_s = pygame.transform.scale(icon_img, (icon_size - 8, icon_size - 8))
-                self.content_surface.blit(img_s, img_s.get_rect(center=item_rect.center))
+                # --- MODIFIED: Scale icon to fit while preserving aspect ratio ---
+                max_size = icon_size - 8
+                img_w, img_h = icon_img.get_size()
+                
+                final_img = icon_img
+                # Only scale down if necessary to avoid distortion
+                if img_w > max_size or img_h > max_size:
+                    scale = min(max_size / img_w, max_size / img_h)
+                    scaled_size = (int(img_w * scale), int(img_h * scale))
+                    final_img = pygame.transform.smoothscale(icon_img, scaled_size)
+
+                self.content_surface.blit(final_img, final_img.get_rect(center=item_rect.center))
             
             is_selected = self.selected_deco_item and self.selected_deco_item['id'] == item['id']
             pygame.draw.rect(self.content_surface, COLOR_HOVER_BORDER if is_selected else COLOR_BORDER, item_rect, 2 if is_selected else 1, border_radius=5)

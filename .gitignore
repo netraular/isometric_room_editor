@@ -2,5 +2,5 @@ rooms
 .vscode
 __pycache__
 rooms
-src\common\__pycache__
-assets\catalog.json
+src/common/__pycache__
+assets/catalog.json

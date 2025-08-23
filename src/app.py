@@ -58,7 +58,8 @@ class App:
         self.file_buttons = {"new": btn_new, "load": btn_load, "save": btn_save, "save_as": btn_save_as}
 
         self.preview_rect = pygame.Rect(0, 0, PREVIEW_SIZE[0], PREVIEW_SIZE[1]); self.preview_rect.topright = (self.editor_rect.right - margin, self.editor_rect.top + margin); self.preview_surface = pygame.Surface(PREVIEW_SIZE)
-        self.item_preview_rect = pygame.Rect(0, 0, 120, 120); self.item_preview_rect.topright = (self.preview_rect.right, self.preview_rect.bottom + 40); self.item_preview_surface = pygame.Surface((120,120), pygame.SRCALPHA)
+        # --- MODIFIED: Increased item preview size ---
+        self.item_preview_rect = pygame.Rect(0, 0, 180, 180); self.item_preview_rect.topright = (self.preview_rect.right, self.preview_rect.bottom + 40); self.item_preview_surface = pygame.Surface((180,180), pygame.SRCALPHA)
 
         input_y = self.right_panel_rect.y + margin + 20
         self.anchor_offset_input_x = TextInputBox(self.right_panel_rect.left + margin, input_y, 100, 25, self.font_ui, input_type='numeric')
@@ -147,21 +148,45 @@ class App:
 
     def draw_item_preview(self):
         self.item_preview_surface.fill(COLOR_TILE)
-        self.renderer._draw_iso_grid_on_surface(self.item_preview_surface, self.item_preview_rect, (self.item_preview_rect.w / 2, self.item_preview_rect.h / 2))
+        preview_anchor_pos = (self.item_preview_rect.w / 2, self.item_preview_rect.h / 2)
+        # We pass the anchor as the offset to center grid(0,0) on it
+        self.renderer._draw_iso_grid_on_surface(self.item_preview_surface, self.item_preview_surface.get_rect(), preview_anchor_pos)
         
-        item_image = self.decoration_editor.get_selected_item_image()
-        if item_image:
+        item_image, item_offset = self.decoration_editor.get_selected_item_image()
+        
+        if item_image and item_offset:
             img_w, img_h = item_image.get_size()
             box_w, box_h = self.item_preview_rect.size
+            
+            # Scale image down if it's too big, preserving aspect ratio
+            scale = 1.0
             if img_w > box_w or img_h > box_h:
                 scale = min(box_w / img_w, box_h / img_h)
-                item_image = pygame.transform.scale(item_image, (int(img_w * scale), int(img_h * scale)))
-            img_rect = item_image.get_rect(center=self.item_preview_surface.get_rect().center)
-            self.item_preview_surface.blit(item_image, img_rect)
+
+            final_image = item_image
+            final_offset = item_offset
+            if scale < 1.0:
+                scaled_size = (int(img_w * scale), int(img_h * scale))
+                final_image = pygame.transform.smoothscale(item_image, scaled_size)
+                final_offset = (item_offset[0] * scale, item_offset[1] * scale)
+            
+            # Position using the item's own offset relative to the grid anchor
+            draw_x = preview_anchor_pos[0] - final_offset[0]
+            draw_y = preview_anchor_pos[1] - final_offset[1]
+            self.item_preview_surface.blit(final_image, (draw_x, draw_y))
         
         self.screen.blit(self.item_preview_surface, self.item_preview_rect)
         pygame.draw.rect(self.screen, COLOR_BORDER, self.item_preview_rect, 1)
-        title_surf = self.font_title.render("Item Preview", True, COLOR_TITLE_TEXT); title_rect = title_surf.get_rect(topright=(self.item_preview_rect.right, self.item_preview_rect.bottom + 5)); self.screen.blit(title_surf, title_rect)
+
+        # --- MODIFIED: Dynamic title for item preview ---
+        title_text = "Item Preview"
+        if self.decoration_editor.selected_deco_item:
+            title_text = self.decoration_editor.selected_deco_item.get('name', 'Item Preview')
+            
+        title_surf = self.font_title.render(title_text, True, COLOR_TITLE_TEXT)
+        title_rect = title_surf.get_rect(topright=(self.item_preview_rect.right, self.item_preview_rect.bottom + 5))
+        self.screen.blit(title_surf, title_rect)
+
 
     def run(self):
         running = True
