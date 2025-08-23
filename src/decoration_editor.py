@@ -74,7 +74,8 @@ class DecorationEditor:
                 elif self.selected_deco_item and self.app.editor_rect.collidepoint(mouse_pos):
                     self.place_decoration(self.ghost_pos)
             if event.button == 3 and self.app.editor_rect.collidepoint(mouse_pos):
-                clicked_grid_pos = screen_to_grid(local_mouse_pos[0], local_mouse_pos[1], self.app.camera.offset)
+                # --- MODIFIED: Pass camera zoom ---
+                clicked_grid_pos = screen_to_grid(local_mouse_pos[0], local_mouse_pos[1], self.app.camera.offset, self.app.camera.zoom)
                 self.delete_decoration_at(clicked_grid_pos)
 
         if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
@@ -88,9 +89,9 @@ class DecorationEditor:
                     self.scroll_y = self.scroll_start_scroll_y + delta_y * (scrollable_content_range / scrollable_px_range)
                     self.clamp_scroll()
             
-            # --- MODIFIED: Always calculate hover position when mouse is on editor ---
             if self.app.editor_rect.collidepoint(mouse_pos) and not self.app.camera.is_panning:
-                self.hover_grid_pos = screen_to_grid(local_mouse_pos[0], local_mouse_pos[1], self.app.camera.offset)
+                # --- MODIFIED: Pass camera zoom ---
+                self.hover_grid_pos = screen_to_grid(local_mouse_pos[0], local_mouse_pos[1], self.app.camera.offset, self.app.camera.zoom)
                 if self.selected_deco_item:
                     self.ghost_pos = self.hover_grid_pos
             else:
@@ -153,10 +154,10 @@ class DecorationEditor:
         return image, offset
 
     def draw_on_editor(self, surface):
-        # --- MODIFIED: Draw the yellow highlight for the hovered tile ---
         if self.hover_grid_pos:
-            hover_screen_pos = grid_to_screen(*self.hover_grid_pos, self.app.camera.offset)
-            p = self.app.renderer._get_tile_points(hover_screen_pos)
+            # --- MODIFIED: Pass camera zoom ---
+            hover_screen_pos = grid_to_screen(*self.hover_grid_pos, self.app.camera.offset, self.app.camera.zoom)
+            p = self.app.renderer._get_tile_points(hover_screen_pos, self.app.camera.zoom)
             pygame.draw.polygon(surface, COLOR_HOVER_BORDER, [p['top'], p['right'], p['bottom'], p['left']], 3)
 
         if self.selected_deco_item and self.app.current_room and self.hover_grid_pos:
@@ -167,7 +168,7 @@ class DecorationEditor:
                 "rotation": self.ghost_rotation
             }
             is_occupied = tuple(self.ghost_pos) in self.app.current_room.occupied_tiles
-            self.app.renderer._draw_decoration(surface, ghost_data, self.app.camera.offset, is_ghost=True, is_occupied=is_occupied)
+            self.app.renderer._draw_decoration(surface, ghost_data, self.app.camera.offset, self.app.camera.zoom, is_ghost=True, is_occupied=is_occupied)
 
     def get_info_lines(self):
         return ["[Left Click] Place Item", "[Right Click] Delete Item", "[R] Rotate Ghost", "[Esc] Deselect"]

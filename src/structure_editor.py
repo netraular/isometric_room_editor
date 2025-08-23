@@ -34,7 +34,8 @@ class StructureEditor:
 
         self.hover_grid_pos = None; self.hover_wall_edge = None
         if self.app.editor_rect.collidepoint(mouse_pos) and not self.app.camera.is_panning:
-            self.hover_grid_pos = screen_to_grid(local_mouse_pos[0], local_mouse_pos[1], self.app.camera.offset)
+            # --- MODIFIED: Pass camera zoom ---
+            self.hover_grid_pos = screen_to_grid(local_mouse_pos[0], local_mouse_pos[1], self.app.camera.offset, self.app.camera.zoom)
             if self.edit_mode == MODE_WALLS: self.hover_wall_edge = self.get_hovered_edge(self.hover_grid_pos, local_mouse_pos)
 
         if event.type == pygame.MOUSEBUTTONDOWN and self.hover_grid_pos and self.app.current_room:
@@ -45,7 +46,9 @@ class StructureEditor:
             elif self.edit_mode == MODE_TILES:
                 if event.button == 1:
                     if shift:
-                        w_mouse_x = local_mouse_pos[0] - self.app.camera.offset[0]; w_mouse_y = local_mouse_pos[1] - self.app.camera.offset[1]
+                        # Convert screen mouse pos to world pos to set the anchor
+                        w_mouse_x = (local_mouse_pos[0] - self.app.camera.offset[0]) / self.app.camera.zoom
+                        w_mouse_y = (local_mouse_pos[1] - self.app.camera.offset[1]) / self.app.camera.zoom
                         self.app.current_room.structure_data["renderAnchor"]["x"], self.app.current_room.structure_data["renderAnchor"]["y"] = w_mouse_x, w_mouse_y
                         self.app.update_anchor_offset_inputs()
                     elif alt:
@@ -63,13 +66,15 @@ class StructureEditor:
 
     def draw_on_editor(self, surface):
         if self.edit_mode == MODE_TILES and self.hover_grid_pos:
-            hover_screen_pos = grid_to_screen(*self.hover_grid_pos, self.app.camera.offset)
-            p = self.app.renderer._get_tile_points(hover_screen_pos)
+            # --- MODIFIED: Pass camera zoom ---
+            hover_screen_pos = grid_to_screen(*self.hover_grid_pos, self.app.camera.offset, self.app.camera.zoom)
+            p = self.app.renderer._get_tile_points(hover_screen_pos, self.app.camera.zoom)
             pygame.draw.polygon(surface, COLOR_HOVER_BORDER, [p['top'], p['right'], p['bottom'], p['left']], 3)
         elif self.edit_mode == MODE_WALLS and self.hover_wall_edge:
             pos, edge = self.hover_wall_edge
-            hover_screen_pos = grid_to_screen(*pos, self.app.camera.offset)
-            p = self.app.renderer._get_tile_points(hover_screen_pos)
+            # --- MODIFIED: Pass camera zoom ---
+            hover_screen_pos = grid_to_screen(*pos, self.app.camera.offset, self.app.camera.zoom)
+            p = self.app.renderer._get_tile_points(hover_screen_pos, self.app.camera.zoom)
             edge_points = { EDGE_NE: (p['top'], p['right']), EDGE_SE: (p['right'], p['bottom']), EDGE_SW: (p['bottom'], p['left']), EDGE_NW: (p['left'], p['top']), EDGE_DIAG_SW_NE: (p['bottom'], p['top']), EDGE_DIAG_NW_SE: (p['left'], p['right']) }
             p1, p2 = edge_points.get(edge, (None, None))
             if p1 and p2: pygame.draw.line(surface, COLOR_HOVER_BORDER, p1, p2, 4)
@@ -92,7 +97,11 @@ class StructureEditor:
 
     def get_hovered_edge(self, grid_pos, screen_mouse_pos):
         if not self.app.current_room or grid_pos not in self.app.current_room.tiles: return None
-        tile_type = self.app.current_room.tiles[grid_pos]; tile_screen_pos = grid_to_screen(*grid_pos, self.app.camera.offset); p = self.app.renderer._get_tile_points(tile_screen_pos)
+        # --- MODIFIED: Pass camera zoom ---
+        tile_screen_pos = grid_to_screen(*grid_pos, self.app.camera.offset, self.app.camera.zoom)
+        p = self.app.renderer._get_tile_points(tile_screen_pos, self.app.camera.zoom)
+        
+        tile_type = self.app.current_room.tiles[grid_pos]
         edge_definitions = { EDGE_NE: {'seg': (p['top'], p['right']), 'neighbor': (grid_pos[0], grid_pos[1] - 1)}, EDGE_SE: {'seg': (p['right'], p['bottom']), 'neighbor': (grid_pos[0] + 1, grid_pos[1])}, EDGE_SW: {'seg': (p['bottom'], p['left']), 'neighbor': (grid_pos[0], grid_pos[1] + 1)}, EDGE_NW: {'seg': (p['left'], p['top']), 'neighbor': (grid_pos[0] - 1, grid_pos[1])}, EDGE_DIAG_SW_NE: {'seg': (p['bottom'], p['top']), 'neighbor': None}, EDGE_DIAG_NW_SE: {'seg': (p['left'], p['right']), 'neighbor': None}, }
         best_edge = None; min_dist = 15; valid_edges_for_shape = TILE_TYPE_EDGES.get(tile_type, [])
         for edge_name in valid_edges_for_shape:

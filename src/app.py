@@ -120,14 +120,16 @@ class App:
         pygame.draw.rect(self.screen, COLOR_TOP_BAR, self.top_bar_rect)
         pygame.draw.rect(self.screen, COLOR_PANEL_BG, self.right_panel_rect)
         
-        self.renderer.draw_room_on_surface(self.editor_surface, self.current_room, self.camera.offset, is_editor_view=True)
+        # --- MODIFIED: Pass camera zoom to the renderer ---
+        self.renderer.draw_room_on_surface(self.editor_surface, self.current_room, self.camera.offset, self.camera.zoom, is_editor_view=True)
         self.active_editor.draw_on_editor(self.editor_surface)
         self.screen.blit(self.editor_surface, self.editor_rect)
 
         pygame.draw.rect(self.screen, COLOR_BORDER, self.editor_rect, 1)
         pygame.draw.rect(self.screen, COLOR_BORDER, self.right_panel_rect, 1)
 
-        self.renderer.draw_room_on_surface(self.preview_surface, self.current_room, self.calculate_preview_offset(PREVIEW_SIZE), is_editor_view=False)
+        # --- MODIFIED: Pass zoom=1.0 to preview so it doesn't zoom ---
+        self.renderer.draw_room_on_surface(self.preview_surface, self.current_room, self.calculate_preview_offset(PREVIEW_SIZE), 1.0, is_editor_view=False)
         self.screen.blit(self.preview_surface, self.preview_rect)
         pygame.draw.rect(self.screen, COLOR_BORDER, self.preview_rect, 1)
         title_surf = self.font_title.render("Room Preview", True, COLOR_TITLE_TEXT); title_rect = title_surf.get_rect(topright=(self.preview_rect.right, self.preview_rect.bottom + 5)); self.screen.blit(title_surf, title_rect)
@@ -225,7 +227,7 @@ class App:
 
     def draw_info_box(self, mode_specific_lines):
         margin, padding, line_height = 15, 8, 15
-        base_lines = ["Controls:", "[Middle Mouse] Pan View"]
+        base_lines = ["Controls:", "[Middle Mouse] Pan View", "[Ctrl+Wheel] Zoom"]
         if self.main_mode == EDITOR_MODE_STRUCTURE: base_lines.append("[Shift+Click] Set Anchor")
         info_lines = base_lines[:1] + mode_specific_lines + base_lines[1:]
         rendered_lines = [self.font_info.render(line, True, COLOR_INFO_TEXT) for line in info_lines]

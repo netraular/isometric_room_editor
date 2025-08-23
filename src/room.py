@@ -1,7 +1,6 @@
 # src/room.py
 
 from common.constants import TILE_WIDTH_HALF, TILE_HEIGHT_HALF
-from common.utils import grid_to_screen
 
 class Room:
     def __init__(self, structure_data, decoration_set_data):
@@ -64,13 +63,22 @@ class Room:
         return sorted(self.decorations, key=lambda d: (d['grid_pos'][1] + d['grid_pos'][0], d['grid_pos'][1] - d['grid_pos'][0]))
 
     def calculate_center_world_coords(self):
-        """Calcula el centro geométrico de la habitación en coordenadas de pantalla."""
-        if not self.tiles: return grid_to_screen(0, 0, (0,0))
+        """Calcula el centro geométrico de la habitación en coordenadas del mundo."""
+        if not self.tiles: 
+            # Return world coords for grid(0,0), adjusted to tile center
+            return (TILE_WIDTH_HALF, TILE_HEIGHT_HALF)
+            
         all_x = [p[0] for p in self.tiles.keys()]
         all_y = [p[1] for p in self.tiles.keys()]
         center_gx = (min(all_x) + max(all_x)) / 2
         center_gy = (min(all_y) + max(all_y)) / 2
-        return grid_to_screen(center_gx, center_gy, (TILE_WIDTH_HALF, TILE_HEIGHT_HALF))
+        
+        # Convert grid center to world center using the direct formula
+        center_wx = (center_gx - center_gy) * TILE_WIDTH_HALF
+        center_wy = (center_gx + center_gy) * TILE_HEIGHT_HALF
+        
+        # Add offset to be in the middle of the center tile's bounding box
+        return center_wx + TILE_WIDTH_HALF, center_wy + TILE_HEIGHT_HALF
 
     def update_structure_data_from_internal(self):
         """Actualiza el diccionario structure_data a partir del estado interno (tiles, walls)."""
