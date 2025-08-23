@@ -3,4 +3,4 @@ rooms
 __pycache__
 rooms
 src\common\__pycache__
-assets/furnis/
+assets\catalog.json
