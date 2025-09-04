@@ -4,6 +4,7 @@ import pygame
 import json
 import sys
 import os
+import re # <-- MODIFICACIÓN: Importar re para sanear nombres de archivo
 from common.constants import *
 from common.ui import Button, TextInputBox
 from common.utils import grid_to_screen # Needed for anchor
@@ -66,7 +67,8 @@ class App:
         btn_save_all = Button(self.win_width - margin - 90, btn_file_y, 90, btn_file_h, "Save All...", self.font_ui)
         btn_load = Button(btn_save_all.rect.left - 10 - 60, btn_file_y, 60, btn_file_h, "Load", self.font_ui)
         btn_new = Button(btn_load.rect.left - 10 - 60, btn_file_y, 60, btn_file_h, "New", self.font_ui)
-        self.file_buttons = {"new": btn_new, "load": btn_load, "save_all": btn_save_all}
+        btn_screenshot = Button(btn_new.rect.left - 10 - 90, btn_file_y, 90, btn_file_h, "Screenshot", self.font_ui)
+        self.file_buttons = {"screenshot": btn_screenshot, "new": btn_new, "load": btn_load, "save_all": btn_save_all}
         # Se ha eliminado el botón "Save"
         # --- FIN DE LA MODIFICACIÓN ---
 
@@ -121,6 +123,7 @@ class App:
             if self.main_buttons['decorations'].is_clicked(event): self.main_mode = EDITOR_MODE_DECORATIONS; self.active_editor = self.decoration_editor
             
             # --- LÓGICA DE EVENTOS DE BOTONES DE ARCHIVO MODIFICADA ---
+            if self.file_buttons['screenshot'].is_clicked(event): self.take_screenshot()
             if self.file_buttons['new'].is_clicked(event): self.create_new_room()
             if self.file_buttons['load'].is_clicked(event): self.load_file_for_current_mode()
             if self.file_buttons['save_all'].is_clicked(event): self.save_all()
@@ -215,6 +218,44 @@ class App:
         start_dir = os.path.join(self.project_root, "rooms", "decoration_sets")
         s_data, d_data = self.data_manager.load_decoration_set_and_structure(initial_dir=start_dir)
         if s_data and d_data: self.set_new_room_data(s_data, d_data)
+
+    # --- NUEVO MÉTODO ---
+    def take_screenshot(self):
+        """Guarda el contenido de la superficie de vista previa en un archivo PNG."""
+        from tkinter import filedialog, messagebox
+
+        if not self.current_room:
+            messagebox.showwarning("Screenshot", "There is no room to take a screenshot of.")
+            return
+
+        self.data_manager._init_tk_root()
+
+        default_name = "room_preview.png"
+        if self.current_room.decoration_set_data:
+            room_name = self.current_room.decoration_set_data.get("decoration_set_name", "Untitled")
+            sane_name = re.sub(r'[^\w\s-]', '', room_name).strip().replace(' ', '_')
+            if sane_name: default_name = f"{sane_name}_preview.png"
+        
+        screenshots_dir = os.path.join(self.project_root, "screenshots")
+        os.makedirs(screenshots_dir, exist_ok=True)
+
+        filepath = filedialog.asksaveasfilename(
+            parent=self.data_manager.root,
+            title="Save Preview Screenshot",
+            initialdir=screenshots_dir,
+            initialfile=default_name,
+            defaultextension=".png",
+            filetypes=[("PNG Image", "*.png"), ("All Files", "*.*")]
+        )
+        self.data_manager.root.update()
+
+        if filepath:
+            try:
+                pygame.image.save(self.preview_surface, filepath)
+                print(f"Screenshot saved to {filepath}")
+            except Exception as e:
+                print(f"Error saving screenshot: {e}")
+                messagebox.showerror("Screenshot Error", f"Could not save the image:\n{e}")
 
     # --- MÉTODO MODIFICADO ---
     def save_all(self):
