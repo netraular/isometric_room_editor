@@ -116,10 +116,14 @@ class Room:
         return False
 
     def get_decorations_sorted_for_render(self):
-        """Sorts decorations by tile depth, then by layer ID for correct rendering."""
+        """
+        Sorts decorations for correct rendering order.
+        Primary sort key: Layer ID (lower layers are drawn first).
+        Secondary sort key: Tile depth (decorations further back are drawn first).
+        """
         return sorted(self.decorations, key=lambda d: (
-            (d['grid_pos'][1] + d['grid_pos'][0], d['grid_pos'][1] - d['grid_pos'][0]),
-            d.get('layer', DEFAULT_LAYER)
+            d.get('layer', DEFAULT_LAYER),
+            (d['grid_pos'][1] + d['grid_pos'][0], d['grid_pos'][1] - d['grid_pos'][0])
         ))
 
     def calculate_center_world_coords(self):

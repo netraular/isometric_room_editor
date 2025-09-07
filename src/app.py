@@ -55,7 +55,7 @@ class App:
         self.main_buttons = { "structure": Button(margin, btn_y, 140, btn_height, "Structure Editor", self.font_ui), "decorations": Button(margin + 150, btn_y, 140, btn_height, "Decorations Editor", self.font_ui) }
         
         btn_file_h = 25; btn_file_y = (TOP_BAR_HEIGHT - btn_file_h) // 2
-        btn_save_all = Button(self.win_width - margin - 90, btn_file_y, 90, btn_file_h, "Save All...", self.font_ui)
+        btn_save_all = Button(self.win_width - margin - 60, btn_file_y, 60, btn_file_h, "Save", self.font_ui)
         btn_load = Button(btn_save_all.rect.left - 10 - 60, btn_file_y, 60, btn_file_h, "Load", self.font_ui)
         btn_new = Button(btn_load.rect.left - 10 - 60, btn_file_y, 60, btn_file_h, "New", self.font_ui)
         btn_screenshot = Button(btn_new.rect.left - 10 - 90, btn_file_y, 90, btn_file_h, "Screenshot", self.font_ui)
@@ -230,8 +230,16 @@ class App:
     def save_all(self):
         if not self.current_room: return
         self.current_room.update_structure_data_from_internal(); self.current_room.update_decoration_set_data_from_internal()
-        ok, new_name = self.data_manager.save_project_to_folder(self.current_room.structure_data, self.current_room.decoration_set_data)
+        ok, new_name, target_folder = self.data_manager.save_project_to_folder(self.current_room.structure_data, self.current_room.decoration_set_data)
         if ok:
+            # Also save a screenshot in the project folder
+            screenshot_path = os.path.join(target_folder, "RoomScreenshot.png")
+            try:
+                pygame.image.save(self.preview_surface, screenshot_path)
+                print(f"Screenshot automatically saved to {screenshot_path}")
+            except Exception as e:
+                print(f"Error automatically saving screenshot: {e}")
+
             self.save_confirmation_timer = 120
             new_caption = new_name.replace('_', ' ').title() if new_name else "Project"
             pygame.display.set_caption(f"Editor - {new_caption}")

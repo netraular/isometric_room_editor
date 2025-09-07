@@ -57,12 +57,12 @@ class DataManager:
         self.root.update()
 
         if not target_folder:
-            return False, None # User cancelled
+            return False, None, None # User cancelled
 
         try:
             base_name = os.path.basename(target_folder)
             structure_filename = "structure.json"
-            decorations_filename = "decorations.json" # CORRECTED FILENAME
+            decorations_filename = "decorations.json"
             furnis_folder_path = os.path.join(target_folder, "furnis")
 
             structure_filepath = os.path.join(target_folder, structure_filename)
@@ -94,12 +94,12 @@ class DataManager:
                 f"- Decorations: {decorations_filename}\n"
                 f"- Exported {num_exported} furniture assets to 'furnis' folder."
             )
-            return True, base_name
+            return True, base_name, target_folder
 
         except Exception as e:
             print(f"Error during project save: {e}")
             messagebox.showerror("Save Error", f"An error occurred while saving the project: {e}")
-            return False, None
+            return False, None, None
 
     def load_catalog(self):
         catalog_path = os.path.join(self.project_root, "assets", "catalog.json")
