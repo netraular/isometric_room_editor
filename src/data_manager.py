@@ -60,45 +60,38 @@ class DataManager:
             return False, None # User cancelled
 
         try:
-            # 1. Prepare filenames and paths
             base_name = os.path.basename(target_folder)
             structure_filename = "structure.json"
-            decorations_filename = "decorations.json"
+            decorations_filename = "decorations.json" # CORRECTED FILENAME
             furnis_folder_path = os.path.join(target_folder, "furnis")
 
             structure_filepath = os.path.join(target_folder, structure_filename)
             decorations_filepath = os.path.join(target_folder, decorations_filename)
 
-            # 2. Update internal IDs to match the folder name
             structure_data['id'] = base_name
             decoration_set_data['structure_id'] = base_name
             decoration_set_data['decoration_set_name'] = f"{base_name.replace('_', ' ').title()} Decorations"
 
-            # 3. Save the structure file
             with open(structure_filepath, 'w') as f:
                 json.dump(structure_data, f, indent=2)
             print(f"Saved structure to {structure_filepath}")
 
-            # 4. Save the decorations file
             with open(decorations_filepath, 'w') as f:
                 json.dump(decoration_set_data, f, indent=2)
             print(f"Saved decorations to {decorations_filepath}")
 
-            # 5. Export the assets
             os.makedirs(furnis_folder_path, exist_ok=True)
             num_exported = self._export_used_assets(decoration_set_data, furnis_folder_path)
             print(f"Exported {num_exported} asset folders.")
 
-            # 6. Update the application's current paths
             self.current_structure_path = structure_filepath
             self.current_decoration_set_path = decorations_filepath
 
-            # 7. Show success message
             messagebox.showinfo(
                 "Save Complete",
                 f"Project '{base_name}' saved successfully!\n\n"
                 f"- Structure: {structure_filename}\n"
-                f"- decorations: {decorations_filename}\n"
+                f"- Decorations: {decorations_filename}\n"
                 f"- Exported {num_exported} furniture assets to 'furnis' folder."
             )
             return True, base_name
@@ -184,26 +177,20 @@ class DataManager:
             with open(fp, 'r', encoding='utf-8') as f:
                 file_data = json.load(f)
 
-            # Case 1: User selected a decoration/decorations file
             if "structure_id" in file_data:
-                print("Loading project from decoration/decorations file...")
+                print("Loading project from decorations file...")
                 decoration_set_data = file_data
                 structure_id = decoration_set_data.get("structure_id")
                 if not structure_id:
                     raise ValueError("Decoration set file has an empty 'structure_id'.")
                 
-                # Look for the associated structure file in the same folder
                 structure_fp_new = os.path.join(os.path.dirname(fp), "structure.json")
-                structure_fp_old = os.path.join(os.path.dirname(fp), f"{structure_id}_structure.json")
                 structure_fp_legacy = os.path.join(self.project_root, "rooms", "structures", f"{structure_id}.json")
 
                 structure_fp = None
                 if os.path.exists(structure_fp_new):
                     structure_fp = structure_fp_new
                     print(f"Found associated structure file: {structure_fp}")
-                elif os.path.exists(structure_fp_old):
-                    structure_fp = structure_fp_old
-                    print(f"Found associated structure file (old format): {structure_fp}")
                 elif os.path.exists(structure_fp_legacy):
                     structure_fp = structure_fp_legacy
                     print(f"Found associated structure file (legacy path): {structure_fp}")
@@ -220,15 +207,12 @@ class DataManager:
                 self.current_decoration_set_path = fp
                 return structure_data, decoration_set_data
 
-            # Case 2: User selected a structure file
             elif "tiles" in file_data and "dimensions" in file_data:
                 print("Loading project from structure file...")
                 structure_data = file_data
                 structure_id = structure_data.get('id', 'unknown')
 
-                # Look for the corresponding decoration set file in the same folder.
                 decorations_fp_new = os.path.join(os.path.dirname(fp), "decorations.json")
-                decorations_fp_old = os.path.join(os.path.dirname(fp), f"{structure_id}_decorations.json")
                 
                 decorations_fp = None
                 decoration_set_data = None
@@ -236,23 +220,19 @@ class DataManager:
                 if os.path.exists(decorations_fp_new):
                     decorations_fp = decorations_fp_new
                     print(f"Found associated decorations file: {decorations_fp}")
-                elif os.path.exists(decorations_fp_old):
-                    decorations_fp = decorations_fp_old
-                    print(f"Found associated decorations file (old format): {decorations_fp}")
 
                 if decorations_fp:
                     with open(decorations_fp, 'r', encoding='utf-8') as f:
                         decoration_set_data = json.load(f)
                     self.current_decoration_set_path = decorations_fp
                 else:
-                    print("No associated decorations/decorations file found. Creating a new empty set.")
+                    print("No associated decorations file found. Creating a new empty set.")
                     decoration_set_data = {"decoration_set_name": f"{structure_data.get('name', 'New')} Decoration Set", "structure_id": structure_id, "decorations": []}
                     self.current_decoration_set_path = None
                 
                 self.current_structure_path = fp
                 return structure_data, decoration_set_data
             
-            # Case 3: Invalid file
             else:
                 messagebox.showerror("Invalid File", "The selected JSON file is not a valid structure or decoration set file.")
                 return None, None

@@ -44,18 +44,20 @@ class StructureEditor:
 
         self.layer_buttons.clear()
         layer_btn_y = self.buttons["mode_tile"].rect.bottom + 15
-        num_layer_btns = len(LAYER_DATA)
+        
+        paintable_layers = {k: v for k, v in LAYER_DATA.items() if k not in [LAYER_FLOOR, LAYER_WALL]}
+        num_layer_btns = len(paintable_layers)
         layer_btn_width = (usable_width - (btn_padding * (num_layer_btns - 1))) // num_layer_btns
         
         layer_x = self.app.right_panel_rect.left + margin
-        for layer_id, data in sorted(LAYER_DATA.items()):
+        for layer_id, data in sorted(paintable_layers.items()):
             btn = Button(layer_x, layer_btn_y, layer_btn_width, 28, data['name'], self.font_ui)
             self.layer_buttons[layer_id] = btn
             layer_x += layer_btn_width + btn_padding
         
         toggle_y = self.buttons["mode_tile"].rect.bottom + 15
         if self.edit_mode == MODE_LAYERS and self.layer_buttons:
-            toggle_y = self.layer_buttons[0].rect.bottom + 15
+            toggle_y = list(self.layer_buttons.values())[0].rect.bottom + 15
 
         toggle_width = usable_width
         self.buttons["toggle_walkable_view"] = ToggleSwitch(
@@ -97,6 +99,7 @@ class StructureEditor:
                     wall_tuple = (self.hover_wall_edge[0], self.hover_wall_edge[1])
                     if wall_tuple in self.app.current_room.walls: self.app.current_room.walls.remove(wall_tuple)
                     else: self.app.current_room.walls.add(wall_tuple)
+                    self.app.current_room._calculate_automatic_layers() # Recalculate after changing walls
                 elif self.edit_mode == MODE_WALKABLE and self.hover_grid_pos in self.app.current_room.tiles:
                     current_status = self.app.current_room.walkable_map.get(self.hover_grid_pos, 0)
                     self.app.current_room.walkable_map[self.hover_grid_pos] = 1 - current_status
@@ -119,13 +122,9 @@ class StructureEditor:
                         if self.hover_grid_pos not in self.app.current_room.layer_map: self.app.current_room.layer_map[self.hover_grid_pos] = DEFAULT_LAYER
                         self.app.update_anchor_offset_inputs()
             elif event.button == 3:
-                if self.edit_mode == MODE_TILES:
-                    self.is_erasing = True; self.delete_tile(self.hover_grid_pos)
-                elif self.edit_mode == MODE_LAYERS and self.hover_grid_pos in self.app.current_room.layer_map:
-                    if self.hover_grid_pos not in self.app.current_room.tiles and self.app.current_room.layer_map[self.hover_grid_pos] == LAYER_WALL:
-                        self.app.current_room.layer_map.pop(self.hover_grid_pos)
-                        print(f"Removed Wall layer from non-tile position {self.hover_grid_pos}")
-                    else:
+                if self.edit_mode == MODE_TILES: self.is_erasing = True; self.delete_tile(self.hover_grid_pos)
+                elif self.edit_mode == MODE_LAYERS and self.hover_grid_pos in self.app.current_room.tiles:
+                    if self.app.current_room.layer_map.get(self.hover_grid_pos) != LAYER_WALL:
                         self.app.current_room.layer_map[self.hover_grid_pos] = DEFAULT_LAYER
                         print(f"Reset layer to Default on tile {self.hover_grid_pos}")
 
@@ -139,16 +138,23 @@ class StructureEditor:
                         if self.hover_grid_pos not in self.app.current_room.layer_map: self.app.current_room.layer_map[self.hover_grid_pos] = DEFAULT_LAYER
                         self.app.update_anchor_offset_inputs()
                     elif self.is_erasing: self.delete_tile(self.hover_grid_pos)
-                elif self.edit_mode == MODE_LAYERS and self.is_painting:
-                    self.paint_layer(self.hover_grid_pos)
+                elif self.edit_mode == MODE_LAYERS and self.is_painting: self.paint_layer(self.hover_grid_pos)
 
     def paint_layer(self, grid_pos):
-        """Paints the selected layer onto a grid position, with special rules."""
-        if self.selected_layer == LAYER_WALL or grid_pos in self.app.current_room.tiles:
-            self.app.current_room.layer_map[grid_pos] = self.selected_layer
-        else:
-            print(f"[WARN] Cannot paint layer on non-tile position {grid_pos} unless it is the Wall layer.")
+        """Paints the selected layer onto an existing tile."""
+        if grid_pos in self.app.current_room.tiles:
+            # Prevent overwriting an automatic Wall layer
+            if self.app.current_room.layer_map.get(grid_pos) != LAYER_WALL:
+                self.app.current_room.layer_map[grid_pos] = self.selected_layer
 
+    def get_info_lines(self):
+        if self.edit_mode == MODE_TILES: return ["[L Click] Paint Tile", "[R Click] Erase Tile", "[Alt+Click] Cycle Corner"]
+        elif self.edit_mode == MODE_WALLS: return ["[Click Edge] Toggle Wall"]
+        elif self.edit_mode == MODE_WALKABLE: return ["[Click Tile] Toggle Walkable"]
+        elif self.edit_mode == MODE_LAYERS: return ["[Click] Paint Layer", "[R Click] Reset Layer"]
+        return []
+    
+    # ... (the rest of the methods in StructureEditor are unchanged) ...
     def draw_on_editor(self, surface):
         if (self.edit_mode in [MODE_TILES, MODE_WALKABLE, MODE_LAYERS]) and self.hover_grid_pos:
             hover_screen_pos = grid_to_screen(*self.hover_grid_pos, self.app.camera.offset, self.app.camera.zoom)
@@ -161,7 +167,6 @@ class StructureEditor:
             edge_points = { EDGE_NE: (p['top'], p['right']), EDGE_SE: (p['right'], p['bottom']), EDGE_SW: (p['bottom'], p['left']), EDGE_NW: (p['left'], p['top']), EDGE_DIAG_SW_NE: (p['bottom'], p['top']), EDGE_DIAG_NW_SE: (p['left'], p['right']) }
             p1, p2 = edge_points.get(edge, (None, None))
             if p1 and p2: pygame.draw.line(surface, COLOR_HOVER_BORDER, p1, p2, 4)
-
     def draw_ui_on_panel(self, screen):
         for name, btn in self.buttons.items():
             if name.startswith('mode_'):
@@ -177,30 +182,15 @@ class StructureEditor:
                 screen.blit(ts, tr)
             elif name != 'toggle_walkable_view':
                  btn.draw(screen)
-
         if self.edit_mode == MODE_LAYERS:
             for layer_id, btn in self.layer_buttons.items():
                 btn.draw(screen, is_active=(self.selected_layer == layer_id))
-        
         self.buttons['toggle_walkable_view'].draw(screen)
-
-    def get_info_lines(self):
-        if self.edit_mode == MODE_TILES:
-            return ["[L Click] Paint Tile", "[R Click] Erase Tile", "[Alt+Click] Cycle Corner"]
-        elif self.edit_mode == MODE_WALLS:
-            return ["[Click Edge] Toggle Wall"]
-        elif self.edit_mode == MODE_WALKABLE:
-            return ["[Click Tile] Toggle Walkable"]
-        elif self.edit_mode == MODE_LAYERS:
-            return ["[L Click] Paint Layer", "[R Click] Reset/Remove Layer"]
-        return []
-    
     def point_to_line_segment_dist(self, p, a, b):
         px, py = p; ax, ay = a; bx, by = b; line_mag_sq = (bx - ax)**2 + (by - ay)**2
         if line_mag_sq == 0: return math.hypot(px - ax, py - ay)
         u = max(0, min(1, (((px - ax) * (bx - ax) + (py - ay) * (by - ay)) / line_mag_sq)))
         ix = ax + u * (bx - ax); iy = ay + u * (by - ay); return math.hypot(px - ix, py - iy)
-
     def get_hovered_edge(self, grid_pos, screen_mouse_pos):
         if not self.app.current_room or grid_pos not in self.app.current_room.tiles: return None
         tile_screen_pos = grid_to_screen(*grid_pos, self.app.camera.offset, self.app.camera.zoom)
@@ -214,11 +204,11 @@ class StructureEditor:
             if (data['neighbor'] is None) or (data['neighbor'] not in self.app.current_room.tiles):
                 if (dist := self.point_to_line_segment_dist(screen_mouse_pos, *data['seg'])) < min_dist: min_dist = dist; best_edge = (grid_pos, edge_name)
         return best_edge
-
     def delete_tile(self, grid_pos):
         if not self.app.current_room or not grid_pos or grid_pos not in self.app.current_room.tiles: return
         self.app.current_room.tiles.pop(grid_pos, None)
         self.app.current_room.walkable_map.pop(grid_pos, None)
         self.app.current_room.layer_map.pop(grid_pos, None)
         self.app.current_room.walls = {wall for wall in self.app.current_room.walls if wall[0] != grid_pos}
+        self.app.current_room._calculate_automatic_layers() # Recalculate after deleting tile/walls
         self.app.update_anchor_offset_inputs()

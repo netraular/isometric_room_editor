@@ -64,29 +64,28 @@ MODE_WALKABLE = 2
 MODE_LAYERS = 3
 
 # --- Layer System ---
-# Note: The 'Floor' layer is now implicit for all tiles and not a paintable layer.
+# Order is important for rendering. Lower IDs are rendered first on a tile.
 LAYER_WALL = 0
-LAYER_BACKGROUND = 1
-LAYER_MAIN = 2
-LAYER_FOREGROUND = 3
+LAYER_FLOOR = 1
+LAYER_BACKGROUND = 2
+LAYER_MAIN = 3
+LAYER_FOREGROUND = 4
 
-# Map layers to their names and a character for saving in the structure file.
-# The alpha value for Wall is set to ~30% (77/255) for rendering.
 LAYER_DATA = {
-    LAYER_WALL:       {"name": "Wall",       "char": "w", "color": (150, 100, 255, 77)},  # Purple, ~30% opacity
-    LAYER_BACKGROUND: {"name": "Background", "char": "b", "color": (100, 150, 255, 128)}, # Blue
-    LAYER_MAIN:       {"name": "Main",       "char": "m", "color": (100, 255, 150, 128)}, # Green
-    LAYER_FOREGROUND: {"name": "Foreground", "char": "g", "color": (255, 150, 100, 128)}, # Orange
+    LAYER_WALL:       {"name": "Wall",       "char": "w", "color": (150, 100, 255, 77)},
+    LAYER_FLOOR:      {"name": "Floor",      "char": "f", "color": (255, 255, 100, 128)}, # 'f' is no longer painted, but used for decoration layer
+    LAYER_BACKGROUND: {"name": "Background", "char": "b", "color": (100, 150, 255, 128)},
+    LAYER_MAIN:       {"name": "Main",       "char": "m", "color": (100, 255, 150, 128)},
+    LAYER_FOREGROUND: {"name": "Foreground", "char": "f", "color": (255, 150, 100, 128)}, # Changed from 'g' to 'f'
 }
 
-# For quick lookups from file characters to layer IDs
 LAYER_CHARS_TO_ID = {data["char"]: layer_id for layer_id, data in LAYER_DATA.items()}
 DEFAULT_LAYER = LAYER_MAIN
 
 # --- Wall Edges ---
 EDGE_NE = "ne"; EDGE_SE = "se"; EDGE_SW = "sw"; EDGE_NW = "nw"
-EDGE_DIAG_SW_NE = "diag_sw_ne" # Diagonal Vertical (Bottom <-> Top)
-EDGE_DIAG_NW_SE = "diag_nw_se" # Diagonal Horizontal (Left <-> Right)
+EDGE_DIAG_SW_NE = "diag_sw_ne"
+EDGE_DIAG_NW_SE = "diag_nw_se"
 
 # --- MAPPING TILE TYPES TO THEIR VALID EDGES ---
 TILE_TYPE_EDGES = {
@@ -102,5 +101,4 @@ EDITOR_MODE_STRUCTURE = 0
 EDITOR_MODE_DECORATIONS = 1
 
 # --- Decoration ---
-# Maps internal rotation index (0-3) to sprite direction suffix (2, 4, 6, 0)
 DECO_ROTATION_MAP = [2, 4, 6, 0]
