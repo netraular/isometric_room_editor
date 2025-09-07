@@ -61,6 +61,27 @@ TILE_TYPES = [TILE_TYPE_FULL, TILE_TYPE_CORNER_NO_TL, TILE_TYPE_CORNER_NO_TR, TI
 MODE_TILES = 0
 MODE_WALLS = 1
 MODE_WALKABLE = 2
+MODE_LAYERS = 3
+
+# --- Layer System ---
+# Note: The 'Floor' layer is now implicit for all tiles and not a paintable layer.
+LAYER_WALL = 0
+LAYER_BACKGROUND = 1
+LAYER_MAIN = 2
+LAYER_FOREGROUND = 3
+
+# Map layers to their names and a character for saving in the structure file.
+# The alpha value for Wall is set to ~30% (77/255) for rendering.
+LAYER_DATA = {
+    LAYER_WALL:       {"name": "Wall",       "char": "w", "color": (150, 100, 255, 77)},  # Purple, ~30% opacity
+    LAYER_BACKGROUND: {"name": "Background", "char": "b", "color": (100, 150, 255, 128)}, # Blue
+    LAYER_MAIN:       {"name": "Main",       "char": "m", "color": (100, 255, 150, 128)}, # Green
+    LAYER_FOREGROUND: {"name": "Foreground", "char": "g", "color": (255, 150, 100, 128)}, # Orange
+}
+
+# For quick lookups from file characters to layer IDs
+LAYER_CHARS_TO_ID = {data["char"]: layer_id for layer_id, data in LAYER_DATA.items()}
+DEFAULT_LAYER = LAYER_MAIN
 
 # --- Wall Edges ---
 EDGE_NE = "ne"; EDGE_SE = "se"; EDGE_SW = "sw"; EDGE_NW = "nw"

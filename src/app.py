@@ -130,7 +130,15 @@ class App:
         pygame.draw.rect(self.screen, COLOR_TOP_BAR, self.top_bar_rect)
         pygame.draw.rect(self.screen, COLOR_PANEL_BG, self.right_panel_rect)
         
-        is_walkable_visible = self.main_mode == EDITOR_MODE_STRUCTURE and self.structure_editor.show_walkable_overlay
+        # Determine which overlays to show in the editor view
+        is_walkable_visible = False
+        is_layer_visible = False
+        if self.main_mode == EDITOR_MODE_STRUCTURE:
+            if self.structure_editor.edit_mode == MODE_LAYERS:
+                is_layer_visible = True
+            elif self.structure_editor.show_walkable_overlay: # Only show walkable if not in layer mode
+                is_walkable_visible = True
+        
         should_draw_decos = self.main_mode == EDITOR_MODE_DECORATIONS
         
         walkable_view_filter = False
@@ -141,6 +149,7 @@ class App:
             self.editor_surface, self.current_room, self.camera.offset, self.camera.zoom, 
             is_editor_view=True, 
             draw_walkable_overlay=is_walkable_visible,
+            draw_layer_overlay=is_layer_visible,
             draw_decorations=should_draw_decos,
             walkable_view_filter=walkable_view_filter
         )
@@ -215,7 +224,7 @@ class App:
         finally: pygame.quit()
     
     def create_new_room(self):
-        new_structure = {"name": "New Structure", "id": "new_structure", "dimensions": {"width": 0, "depth": 0, "origin_x": 0, "origin_y": 0}, "renderAnchor": {"x": 0, "y": 0}, "tiles": [], "walkable": [], "walls": []}
+        new_structure = {"name": "New Structure", "id": "new_structure", "dimensions": {"width": 0, "depth": 0, "origin_x": 0, "origin_y": 0}, "renderAnchor": {"x": 0, "y": 0}, "tiles": [], "walkable": [], "layers": [], "walls": []}
         new_decoration_set = {"decoration_set_name": "New Decoration Set", "structure_id": "new_structure", "decorations": []}
         self.data_manager.current_decoration_set_path = None; self.data_manager.current_structure_path = None
         self.set_new_room_data(new_structure, new_decoration_set)
@@ -341,3 +350,13 @@ class App:
             icon_rect.center = (center_x, top_y + 4)
             pygame.draw.rect(screen, COLOR_WALKABLE_OVERLAY, icon_rect, border_radius=3)
             pygame.draw.rect(screen, (200, 255, 200), icon_rect, 1, border_radius=3)
+        elif button_name == "mode_layers":
+            r1 = pygame.Rect(0,0,28,12); r1.center = (center_x, top_y)
+            r2 = r1.copy(); r2.move_ip(4, 4)
+            r3 = r2.copy(); r3.move_ip(4, 4)
+            pygame.draw.rect(screen, LAYER_DATA[LAYER_BACKGROUND]["color"], r3, border_radius=2)
+            pygame.draw.rect(screen, LAYER_DATA[LAYER_MAIN]["color"], r2, border_radius=2)
+            pygame.draw.rect(screen, LAYER_DATA[LAYER_FOREGROUND]["color"], r1, border_radius=2)
+            pygame.draw.rect(screen, COLOR_BORDER, r1, 1, border_radius=2)
+            pygame.draw.rect(screen, COLOR_BORDER, r2, 1, border_radius=2)
+            pygame.draw.rect(screen, COLOR_BORDER, r3, 1, border_radius=2)

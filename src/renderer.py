@@ -8,7 +8,7 @@ class RoomRenderer:
     def __init__(self, data_manager):
         self.data_manager = data_manager
 
-    def draw_room_on_surface(self, surface, room, camera_offset, zoom=1.0, is_editor_view=True, draw_walkable_overlay=False, draw_decorations=True, walkable_view_filter=False):
+    def draw_room_on_surface(self, surface, room, camera_offset, zoom=1.0, is_editor_view=True, draw_walkable_overlay=False, draw_layer_overlay=False, draw_decorations=True, walkable_view_filter=False):
         surface.fill(COLOR_EDITOR_BG if is_editor_view else COLOR_PREVIEW_BG)
         if is_editor_view: self._draw_iso_grid_on_surface(surface, surface.get_rect(), camera_offset, zoom)
         if not room: return
@@ -20,18 +20,34 @@ class RoomRenderer:
             screen_pos = grid_to_screen(gx, gy, camera_offset, zoom)
             self._draw_tile_shape(surface, screen_pos, room.tiles[(gx, gy)], COLOR_TILE, COLOR_TILE_BORDER, zoom)
 
-        if is_editor_view and draw_walkable_overlay:
+        if is_editor_view and (draw_walkable_overlay or draw_layer_overlay):
             overlay_surface = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-            for (gx, gy), tile_type in room.tiles.items():
-                is_walkable = room.walkable_map.get((gx, gy), 0)
-                color = COLOR_WALKABLE_OVERLAY if is_walkable else COLOR_NON_WALKABLE_OVERLAY
-                screen_pos = grid_to_screen(gx, gy, camera_offset, zoom)
-                
-                p = self._get_tile_points(screen_pos, zoom)
-                points_map = { TILE_TYPE_FULL: [p['top'], p['right'], p['bottom'], p['left']], TILE_TYPE_CORNER_NO_TL: [p['top'], p['right'], p['bottom']], TILE_TYPE_CORNER_NO_TR: [p['top'], p['bottom'], p['left']], TILE_TYPE_CORNER_NO_BR: [p['top'], p['right'], p['left']], TILE_TYPE_CORNER_NO_BL: [p['right'], p['bottom'], p['left']] }
-                points = points_map.get(tile_type)
-                if points:
-                    pygame.draw.polygon(overlay_surface, color, points)
+            
+            if draw_layer_overlay:
+                # Iterate over the layer map to draw layer colors, even on non-tile positions.
+                for (gx, gy), layer_id in room.layer_map.items():
+                    # Default to a full tile shape for visualization if no tile exists.
+                    tile_type = room.tiles.get((gx, gy), TILE_TYPE_FULL)
+                    screen_pos = grid_to_screen(gx, gy, camera_offset, zoom)
+                    p = self._get_tile_points(screen_pos, zoom)
+                    points_map = { TILE_TYPE_FULL: [p['top'], p['right'], p['bottom'], p['left']], TILE_TYPE_CORNER_NO_TL: [p['top'], p['right'], p['bottom']], TILE_TYPE_CORNER_NO_TR: [p['top'], p['bottom'], p['left']], TILE_TYPE_CORNER_NO_BR: [p['top'], p['right'], p['left']], TILE_TYPE_CORNER_NO_BL: [p['right'], p['bottom'], p['left']] }
+                    points = points_map.get(tile_type)
+                    if points:
+                        color = LAYER_DATA[layer_id]['color']
+                        pygame.draw.polygon(overlay_surface, color, points)
+
+            elif draw_walkable_overlay:
+                # This only runs if layer overlay is off. It iterates over existing tiles.
+                for (gx, gy), tile_type in room.tiles.items():
+                    screen_pos = grid_to_screen(gx, gy, camera_offset, zoom)
+                    p = self._get_tile_points(screen_pos, zoom)
+                    points_map = { TILE_TYPE_FULL: [p['top'], p['right'], p['bottom'], p['left']], TILE_TYPE_CORNER_NO_TL: [p['top'], p['right'], p['bottom']], TILE_TYPE_CORNER_NO_TR: [p['top'], p['bottom'], p['left']], TILE_TYPE_CORNER_NO_BR: [p['top'], p['right'], p['left']], TILE_TYPE_CORNER_NO_BL: [p['right'], p['bottom'], p['left']] }
+                    points = points_map.get(tile_type)
+                    if points:
+                        is_walkable = room.walkable_map.get((gx, gy), 0)
+                        color = COLOR_WALKABLE_OVERLAY if is_walkable else COLOR_NON_WALKABLE_OVERLAY
+                        pygame.draw.polygon(overlay_surface, color, points)
+
             surface.blit(overlay_surface, (0, 0))
 
         for gx, gy in sorted_tiles:
@@ -46,7 +62,7 @@ class RoomRenderer:
                 if walkable_view_filter:
                     is_walkable = room.walkable_map.get(tuple(deco.get("grid_pos", ())), 0) == 1
                     if not is_walkable:
-                        opacity_ratio = 0.1  # 10%
+                        opacity_ratio = 0.1
                 self._draw_decoration(surface, deco, camera_offset, zoom, custom_opacity_ratio=opacity_ratio)
 
         if is_editor_view:
