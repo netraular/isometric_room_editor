@@ -113,28 +113,22 @@ class RoomRenderer:
             pass
             
         return None, None
-
-    def _draw_decoration(self, surface, deco_data, camera_offset, zoom=1.0, is_ghost=False, is_occupied=False):
+        
+    def get_decoration_render_details(self, deco_data, camera_offset, zoom=1.0):
+        """Calculates the final scaled image and absolute screen position for a decoration."""
         base_id, variant_id = deco_data.get("base_id"), deco_data.get("variant_id", "0")
         grid_pos, rotation = deco_data.get("grid_pos"), deco_data.get("rotation", 0)
         
         image, offset = self.get_rendered_image_and_offset(base_id, variant_id, rotation)
-        
+        if not image or not offset or not grid_pos:
+            return None, None
+
         screen_pos = grid_to_screen(grid_pos[0], grid_pos[1], camera_offset, zoom)
-
-        if not image or not offset:
-            scaled_twh = TILE_WIDTH_HALF * zoom
-            scaled_thh = TILE_HEIGHT_HALF * zoom
-            center_x = screen_pos[0] + scaled_twh
-            center_y = screen_pos[1] + scaled_thh
-            pygame.draw.circle(surface, (255, 0, 255), (center_x, center_y), 8)
-            return
-
         img_w, img_h = image.get_size()
         scaled_size = (int(img_w * zoom), int(img_h * zoom))
         
         if scaled_size[0] <= 0 or scaled_size[1] <= 0:
-            return
+            return None, None
             
         final_image = pygame.transform.scale(image, scaled_size)
         scaled_offset = (offset[0] * zoom, offset[1] * zoom)
@@ -145,6 +139,22 @@ class RoomRenderer:
         anchor_y = screen_pos[1] + scaled_thh
         draw_x = anchor_x - scaled_offset[0]
         draw_y = anchor_y - scaled_offset[1]
+
+        return final_image, (draw_x, draw_y)
+
+    def _draw_decoration(self, surface, deco_data, camera_offset, zoom=1.0, is_ghost=False, is_occupied=False):
+        render_details = self.get_decoration_render_details(deco_data, camera_offset, zoom)
+
+        if not render_details or not render_details[0]:
+            grid_pos = deco_data.get("grid_pos")
+            if grid_pos:
+                screen_pos = grid_to_screen(grid_pos[0], grid_pos[1], camera_offset, zoom)
+                scaled_twh, scaled_thh = TILE_WIDTH_HALF * zoom, TILE_HEIGHT_HALF * zoom
+                center_x, center_y = screen_pos[0] + scaled_twh, screen_pos[1] + scaled_thh
+                pygame.draw.circle(surface, (255, 0, 255), (center_x, center_y), 8)
+            return
+
+        final_image, (draw_x, draw_y) = render_details
 
         if is_ghost:
             ghost_image = final_image.copy()
