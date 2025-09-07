@@ -81,7 +81,6 @@ def build_catalog_from_assets():
 
             item_category_key = furni_data.get("category", "other").lower()
 
-            # --- MODIFIED: Renamed loop variable for clarity ---
             # Iterate through all color/state variants of the item
             for variant_id, variant_data in furni_data.get("variants", {}).items():
                 
@@ -90,7 +89,6 @@ def build_catalog_from_assets():
                     items_skipped += 1
                     continue
 
-                # --- MODIFIED: Renamed 'color_id' to 'variant_id' ---
                 # Construct the item object for the catalog
                 catalog_item = {
                     "id": variant_data.get("id", f"{base_id}_{variant_id}"),

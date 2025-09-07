@@ -34,7 +34,6 @@ class StructureEditor:
 
         self.hover_grid_pos = None; self.hover_wall_edge = None
         if self.app.editor_rect.collidepoint(mouse_pos) and not self.app.camera.is_panning:
-            # --- MODIFIED: Pass camera zoom ---
             self.hover_grid_pos = screen_to_grid(local_mouse_pos[0], local_mouse_pos[1], self.app.camera.offset, self.app.camera.zoom)
             if self.edit_mode == MODE_WALLS: self.hover_wall_edge = self.get_hovered_edge(self.hover_grid_pos, local_mouse_pos)
 
@@ -66,13 +65,11 @@ class StructureEditor:
 
     def draw_on_editor(self, surface):
         if self.edit_mode == MODE_TILES and self.hover_grid_pos:
-            # --- MODIFIED: Pass camera zoom ---
             hover_screen_pos = grid_to_screen(*self.hover_grid_pos, self.app.camera.offset, self.app.camera.zoom)
             p = self.app.renderer._get_tile_points(hover_screen_pos, self.app.camera.zoom)
             pygame.draw.polygon(surface, COLOR_HOVER_BORDER, [p['top'], p['right'], p['bottom'], p['left']], 3)
         elif self.edit_mode == MODE_WALLS and self.hover_wall_edge:
             pos, edge = self.hover_wall_edge
-            # --- MODIFIED: Pass camera zoom ---
             hover_screen_pos = grid_to_screen(*pos, self.app.camera.offset, self.app.camera.zoom)
             p = self.app.renderer._get_tile_points(hover_screen_pos, self.app.camera.zoom)
             edge_points = { EDGE_NE: (p['top'], p['right']), EDGE_SE: (p['right'], p['bottom']), EDGE_SW: (p['bottom'], p['left']), EDGE_NW: (p['left'], p['top']), EDGE_DIAG_SW_NE: (p['bottom'], p['top']), EDGE_DIAG_NW_SE: (p['left'], p['right']) }
@@ -97,7 +94,6 @@ class StructureEditor:
 
     def get_hovered_edge(self, grid_pos, screen_mouse_pos):
         if not self.app.current_room or grid_pos not in self.app.current_room.tiles: return None
-        # --- MODIFIED: Pass camera zoom ---
         tile_screen_pos = grid_to_screen(*grid_pos, self.app.camera.offset, self.app.camera.zoom)
         p = self.app.renderer._get_tile_points(tile_screen_pos, self.app.camera.zoom)
         

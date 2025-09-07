@@ -118,8 +118,6 @@ class DecorationEditor:
         if not self.selected_deco_item or not self.app.current_room:
             return
             
-        # --- LÍNEA CORREGIDA ---
-        # Se ha reemplazado 'color_id' por 'variant_id' para que coincida con la nueva estructura de datos.
         self.app.current_room.add_decoration(self.selected_deco_item['base_id'], self.selected_deco_item['variant_id'], grid_pos, self.ghost_rotation)
         
     def perform_search(self):

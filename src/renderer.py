@@ -71,7 +71,6 @@ class RoomRenderer:
             wall_points = [p1, p2, (p2[0], p2[1] - scaled_wall_h), (p1[0], p1[1] - scaled_wall_h)]
             pygame.draw.polygon(surf, COLOR_WALL, wall_points); pygame.draw.polygon(surf, COLOR_WALL_BORDER, wall_points, 2)
 
-    # --- MODIFIED: Renamed parameter to variant_id ---
     def get_rendered_image_and_offset(self, base_id, variant_id, rotation):
         if not all((base_id, variant_id, rotation is not None)):
             return None, None
@@ -81,7 +80,6 @@ class RoomRenderer:
             return None, None
 
         try:
-            # --- MODIFIED: Use variant_id to access the dictionary key ---
             variant = furni_data["variants"][str(variant_id)]
             render_info = variant["renders"][str(rotation)]
             
@@ -99,11 +97,9 @@ class RoomRenderer:
         return None, None
 
     def _draw_decoration(self, surface, deco_data, camera_offset, zoom=1.0, is_ghost=False, is_occupied=False):
-        # --- MODIFIED: Renamed local variable to variant_id ---
         base_id, variant_id = deco_data.get("base_id"), deco_data.get("variant_id", "0")
         grid_pos, rotation = deco_data.get("grid_pos"), deco_data.get("rotation", 0)
         
-        # --- MODIFIED: Pass variant_id ---
         image, offset = self.get_rendered_image_and_offset(base_id, variant_id, rotation)
         
         screen_pos = grid_to_screen(grid_pos[0], grid_pos[1], camera_offset, zoom)

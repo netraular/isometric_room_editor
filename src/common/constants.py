@@ -3,7 +3,7 @@
 # --- Window and Layout ---
 INITIAL_WIN_WIDTH, INITIAL_WIN_HEIGHT = 1280, 720
 TOP_BAR_HEIGHT = 40
-TOOLBAR_HEIGHT = 0 # Eliminamos la segunda barra de herramientas
+TOOLBAR_HEIGHT = 0 # Second toolbar removed
 RIGHT_PANEL_WIDTH = 280
 PREVIEW_SIZE = (240, 240)
 

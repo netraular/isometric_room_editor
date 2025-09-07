@@ -44,7 +44,7 @@ class DataManager:
 
     def save_project_to_folder(self, structure_data, decoration_set_data):
         """
-        Asks the user for a folder and saves the structure, decorations, and
+        Asks the user for a folder and saves the structure, directions, and
         assets of the used furniture in it.
         """
         self._init_tk_root()
@@ -62,14 +62,14 @@ class DataManager:
         try:
             # 1. Prepare filenames and paths
             base_name = os.path.basename(target_folder)
-            structure_filename = f"{base_name}_structure.json"
-            decorations_filename = f"{base_name}_decorations.json"
+            structure_filename = "structure.json"
+            decorations_filename = "directions.json"
             furnis_folder_path = os.path.join(target_folder, "furnis")
 
             structure_filepath = os.path.join(target_folder, structure_filename)
             decorations_filepath = os.path.join(target_folder, decorations_filename)
 
-            # 2. Update internal IDs to match
+            # 2. Update internal IDs to match the folder name
             structure_data['id'] = base_name
             decoration_set_data['structure_id'] = base_name
             decoration_set_data['decoration_set_name'] = f"{base_name.replace('_', ' ').title()} Decorations"
@@ -77,16 +77,19 @@ class DataManager:
             # 3. Save the structure file
             with open(structure_filepath, 'w') as f:
                 json.dump(structure_data, f, indent=2)
+            print(f"Saved structure to {structure_filepath}")
 
-            # 4. Save the decorations file
+            # 4. Save the directions file
             with open(decorations_filepath, 'w') as f:
                 json.dump(decoration_set_data, f, indent=2)
+            print(f"Saved directions to {decorations_filepath}")
 
             # 5. Export the assets
             os.makedirs(furnis_folder_path, exist_ok=True)
             num_exported = self._export_used_assets(decoration_set_data, furnis_folder_path)
+            print(f"Exported {num_exported} asset folders.")
 
-            # 6. Update the current paths of the application
+            # 6. Update the application's current paths
             self.current_structure_path = structure_filepath
             self.current_decoration_set_path = decorations_filepath
 
@@ -95,12 +98,13 @@ class DataManager:
                 "Save Complete",
                 f"Project '{base_name}' saved successfully!\n\n"
                 f"- Structure: {structure_filename}\n"
-                f"- Decorations: {decorations_filename}\n"
+                f"- Directions: {decorations_filename}\n"
                 f"- Exported {num_exported} furniture assets to 'furnis' folder."
             )
             return True, base_name
 
         except Exception as e:
+            print(f"Error during project save: {e}")
             messagebox.showerror("Save Error", f"An error occurred while saving the project: {e}")
             return False, None
 
@@ -180,25 +184,28 @@ class DataManager:
             with open(fp, 'r', encoding='utf-8') as f:
                 file_data = json.load(f)
 
-            # Case 1: User selected a decoration set file
+            # Case 1: User selected a decoration/directions file
             if "structure_id" in file_data:
-                print("Loading project from decoration set file...")
+                print("Loading project from decoration/directions file...")
                 decoration_set_data = file_data
                 structure_id = decoration_set_data.get("structure_id")
                 if not structure_id:
                     raise ValueError("Decoration set file has an empty 'structure_id'.")
                 
-                # Look for the structure file in the same folder (primary method)
-                structure_fp_relative = os.path.join(os.path.dirname(fp), f"{structure_id}_structure.json")
-                # Fallback for old, non-project structure files
-                structure_fp_standard = os.path.join(self.project_root, "rooms", "structures", f"{structure_id}.json")
+                # Look for the associated structure file in the same folder
+                structure_fp_new = os.path.join(os.path.dirname(fp), "structure.json")
+                structure_fp_old = os.path.join(os.path.dirname(fp), f"{structure_id}_structure.json")
+                structure_fp_legacy = os.path.join(self.project_root, "rooms", "structures", f"{structure_id}.json")
 
                 structure_fp = None
-                if os.path.exists(structure_fp_relative):
-                    structure_fp = structure_fp_relative
+                if os.path.exists(structure_fp_new):
+                    structure_fp = structure_fp_new
                     print(f"Found associated structure file: {structure_fp}")
-                elif os.path.exists(structure_fp_standard):
-                    structure_fp = structure_fp_standard
+                elif os.path.exists(structure_fp_old):
+                    structure_fp = structure_fp_old
+                    print(f"Found associated structure file (old format): {structure_fp}")
+                elif os.path.exists(structure_fp_legacy):
+                    structure_fp = structure_fp_legacy
                     print(f"Found associated structure file (legacy path): {structure_fp}")
 
                 if structure_fp:
@@ -206,7 +213,7 @@ class DataManager:
                         structure_data = json.load(f)
                     self.current_structure_path = structure_fp
                 else:
-                    messagebox.showwarning("Structure Not Found", f"Could not find the structure file for ID '{structure_id}'.\nLoading decorations with a default empty structure.")
+                    messagebox.showwarning("Structure Not Found", f"Could not find the structure file for ID '{structure_id}'.\nLoading with a default empty structure.")
                     structure_data = {"name": "Missing Structure", "id": structure_id, "dimensions": {"width": 0, "depth": 0, "origin_x": 0, "origin_y": 0}, "renderAnchor": {"x": 0, "y": 0}, "tiles": [], "walls": []}
                     self.current_structure_path = None
                 
@@ -220,16 +227,25 @@ class DataManager:
                 structure_id = structure_data.get('id', 'unknown')
 
                 # Look for the corresponding decoration set file in the same folder.
-                decorations_fp_relative = os.path.join(os.path.dirname(fp), f"{structure_id}_decorations.json")
+                decorations_fp_new = os.path.join(os.path.dirname(fp), "directions.json")
+                decorations_fp_old = os.path.join(os.path.dirname(fp), f"{structure_id}_decorations.json")
                 
-                if os.path.exists(decorations_fp_relative):
-                    print(f"Found associated decorations file: {decorations_fp_relative}")
-                    with open(decorations_fp_relative, 'r', encoding='utf-8') as f:
+                decorations_fp = None
+                decoration_set_data = None
+
+                if os.path.exists(decorations_fp_new):
+                    decorations_fp = decorations_fp_new
+                    print(f"Found associated directions file: {decorations_fp}")
+                elif os.path.exists(decorations_fp_old):
+                    decorations_fp = decorations_fp_old
+                    print(f"Found associated decorations file (old format): {decorations_fp}")
+
+                if decorations_fp:
+                    with open(decorations_fp, 'r', encoding='utf-8') as f:
                         decoration_set_data = json.load(f)
-                    self.current_decoration_set_path = decorations_fp_relative
+                    self.current_decoration_set_path = decorations_fp
                 else:
-                    # Fallback: create a new, empty decoration set if none is found.
-                    print("No associated decorations file found. Creating a new empty set.")
+                    print("No associated directions/decorations file found. Creating a new empty set.")
                     decoration_set_data = {"decoration_set_name": f"{structure_data.get('name', 'New')} Decoration Set", "structure_id": structure_id, "decorations": []}
                     self.current_decoration_set_path = None
                 
