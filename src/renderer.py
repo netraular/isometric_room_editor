@@ -8,7 +8,7 @@ class RoomRenderer:
     def __init__(self, data_manager):
         self.data_manager = data_manager
 
-    def draw_room_on_surface(self, surface, room, camera_offset, zoom=1.0, is_editor_view=True, draw_walkable_overlay=False, draw_decorations=True):
+    def draw_room_on_surface(self, surface, room, camera_offset, zoom=1.0, is_editor_view=True, draw_walkable_overlay=False, draw_decorations=True, walkable_view_filter=False):
         surface.fill(COLOR_EDITOR_BG if is_editor_view else COLOR_PREVIEW_BG)
         if is_editor_view: self._draw_iso_grid_on_surface(surface, surface.get_rect(), camera_offset, zoom)
         if not room: return
@@ -42,7 +42,12 @@ class RoomRenderer:
         
         if draw_decorations:
             for deco in room.get_decorations_sorted_for_render():
-                self._draw_decoration(surface, deco, camera_offset, zoom)
+                opacity_ratio = None
+                if walkable_view_filter:
+                    is_walkable = room.walkable_map.get(tuple(deco.get("grid_pos", ())), 0) == 1
+                    if not is_walkable:
+                        opacity_ratio = 0.1  # 10%
+                self._draw_decoration(surface, deco, camera_offset, zoom, custom_opacity_ratio=opacity_ratio)
 
         if is_editor_view:
             anchor_world_x, anchor_world_y = room.structure_data["renderAnchor"]["x"], room.structure_data["renderAnchor"]["y"]
@@ -142,7 +147,7 @@ class RoomRenderer:
 
         return final_image, (draw_x, draw_y)
 
-    def _draw_decoration(self, surface, deco_data, camera_offset, zoom=1.0, is_ghost=False, is_occupied=False):
+    def _draw_decoration(self, surface, deco_data, camera_offset, zoom=1.0, is_ghost=False, is_occupied=False, custom_opacity_ratio=None):
         render_details = self.get_decoration_render_details(deco_data, camera_offset, zoom)
 
         if not render_details or not render_details[0]:
@@ -165,5 +170,10 @@ class RoomRenderer:
                 red_tint.fill((255, 50, 50, 80))
                 ghost_image.blit(red_tint, (0, 0))
             surface.blit(ghost_image, (draw_x, draw_y))
+        elif custom_opacity_ratio is not None:
+            faded_image = final_image.copy()
+            alpha = int(255 * custom_opacity_ratio)
+            faded_image.set_alpha(alpha)
+            surface.blit(faded_image, (draw_x, draw_y))
         else:
             surface.blit(final_image, (draw_x, draw_y))

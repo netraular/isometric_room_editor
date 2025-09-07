@@ -132,11 +132,17 @@ class App:
         
         is_walkable_visible = self.main_mode == EDITOR_MODE_STRUCTURE and self.structure_editor.show_walkable_overlay
         should_draw_decos = self.main_mode == EDITOR_MODE_DECORATIONS
+        
+        walkable_view_filter = False
+        if self.main_mode == EDITOR_MODE_DECORATIONS:
+            walkable_view_filter = self.decoration_editor.walkable_only_view
+
         self.renderer.draw_room_on_surface(
             self.editor_surface, self.current_room, self.camera.offset, self.camera.zoom, 
             is_editor_view=True, 
             draw_walkable_overlay=is_walkable_visible,
-            draw_decorations=should_draw_decos
+            draw_decorations=should_draw_decos,
+            walkable_view_filter=walkable_view_filter
         )
         self.active_editor.draw_on_editor(self.editor_surface)
         self.screen.blit(self.editor_surface, self.editor_rect)

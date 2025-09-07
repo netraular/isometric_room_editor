@@ -3,7 +3,7 @@ import pygame
 import math
 import os
 from common.constants import *
-from common.ui import Button, TextInputBox
+from common.ui import Button, TextInputBox, ToggleSwitch
 from common.utils import grid_to_screen, screen_to_grid
 
 class DecorationEditor:
@@ -42,6 +42,8 @@ class DecorationEditor:
         self.non_walkable_group_open = True
         self.scroll_to_y_target = None
         self.needs_to_scroll_to_selection = False
+        self.walkable_only_view = False
+        self.walkable_only_toggle = None
 
         # UI Rects and Surfaces
         self.panel_rect, self.catalog_panel_rect, self.room_objects_panel_rect = pygame.Rect(0,0,0,0), pygame.Rect(0,0,0,0), pygame.Rect(0,0,0,0)
@@ -70,10 +72,19 @@ class DecorationEditor:
         self.room_objects_scrollbar_track_rect = pygame.Rect(self.room_objects_panel_rect.right - scrollbar_width, self.room_objects_panel_rect.top, scrollbar_width, self.room_objects_panel_rect.height)
         self.update_room_objects_scrollbar_thumb()
 
+        self.walkable_only_toggle = ToggleSwitch(
+            0, 0, 140, 28, self.app.font_ui, "Walkable Only", initial_state=self.walkable_only_view
+        )
+        self.walkable_only_toggle.rect.topright = (self.room_objects_panel_rect.right - 10, self.room_objects_panel_rect.top + 1)
+
     def handle_events(self, event, mouse_pos, local_mouse_pos, keys):
         if self.search_input.handle_event(event) is not None: self.perform_search(); self.search_input.active = False
         self.search_button.check_hover(mouse_pos)
         if self.search_button.is_clicked(event): self.perform_search(); self.search_input.active = False
+
+        self.walkable_only_toggle.check_hover(mouse_pos)
+        if self.walkable_only_toggle.handle_event(event):
+            self.walkable_only_view = self.walkable_only_toggle.state
 
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
@@ -91,7 +102,7 @@ class DecorationEditor:
 
             if event.button == 1:
                 if self.catalog_panel_rect.collidepoint(mouse_pos) and not self.catalog_scrollbar_track_rect.collidepoint(mouse_pos) and not self.search_input.rect.collidepoint(mouse_pos) and not self.search_button.rect.collidepoint(mouse_pos): self.handle_catalog_click(mouse_pos)
-                elif self.room_objects_panel_rect.collidepoint(mouse_pos) and not self.room_objects_scrollbar_track_rect.collidepoint(mouse_pos): self.handle_room_objects_click(mouse_pos)
+                elif self.room_objects_panel_rect.collidepoint(mouse_pos) and not self.room_objects_scrollbar_track_rect.collidepoint(mouse_pos) and not self.walkable_only_toggle.rect.collidepoint(mouse_pos): self.handle_room_objects_click(mouse_pos)
                 elif self.app.editor_rect.collidepoint(mouse_pos):
                     # If holding an item from the catalog, the primary action is to place it.
                     if self.selected_deco_item:
@@ -266,8 +277,11 @@ class DecorationEditor:
 
     def draw_room_objects_section(self, screen):
         pygame.draw.line(screen, COLOR_BORDER, self.room_objects_panel_rect.topleft, self.room_objects_panel_rect.topright, 1)
-        title_surf = self.app.font_title.render("Room Objects", True, COLOR_TITLE_TEXT); screen.blit(title_surf, (self.room_objects_panel_rect.x + 10, self.room_objects_panel_rect.y + 5))
+        title_surf = self.app.font_title.render("Room Objects", True, COLOR_TITLE_TEXT)
+        screen.blit(title_surf, (self.room_objects_panel_rect.x + 10, self.room_objects_panel_rect.y + 5))
         
+        self.walkable_only_toggle.draw(screen)
+
         self.draw_room_objects_list_content()
         
         if self.needs_to_scroll_to_selection and self.scroll_to_y_target is not None:
@@ -324,7 +338,8 @@ class DecorationEditor:
 
         draw_group("Walkable Area", walkable_decos, self.walkable_group_open)
         y_pos += 5
-        draw_group("Non-Walkable Area", non_walkable_decos, self.non_walkable_group_open)
+        if not self.walkable_only_view:
+            draw_group("Non-Walkable Area", non_walkable_decos, self.non_walkable_group_open)
         self.room_objects_content_height = y_pos
 
     def draw_search_results_view(self):
