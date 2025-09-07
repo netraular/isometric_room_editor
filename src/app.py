@@ -6,7 +6,7 @@ import sys
 import os
 import re 
 from common.constants import *
-from common.ui import Button, TextInputBox
+from common.ui import Button, TextInputBox, ToggleSwitch
 from common.utils import grid_to_screen # Needed for anchor
 
 # Only import modules that do NOT depend on App
@@ -130,14 +130,22 @@ class App:
         pygame.draw.rect(self.screen, COLOR_TOP_BAR, self.top_bar_rect)
         pygame.draw.rect(self.screen, COLOR_PANEL_BG, self.right_panel_rect)
         
-        self.renderer.draw_room_on_surface(self.editor_surface, self.current_room, self.camera.offset, self.camera.zoom, is_editor_view=True)
+        is_walkable_visible = self.main_mode == EDITOR_MODE_STRUCTURE and self.structure_editor.show_walkable_overlay
+        should_draw_decos = self.main_mode == EDITOR_MODE_DECORATIONS
+        self.renderer.draw_room_on_surface(
+            self.editor_surface, self.current_room, self.camera.offset, self.camera.zoom, 
+            is_editor_view=True, 
+            draw_walkable_overlay=is_walkable_visible,
+            draw_decorations=should_draw_decos
+        )
         self.active_editor.draw_on_editor(self.editor_surface)
         self.screen.blit(self.editor_surface, self.editor_rect)
 
         pygame.draw.rect(self.screen, COLOR_BORDER, self.editor_rect, 1)
         pygame.draw.rect(self.screen, COLOR_BORDER, self.right_panel_rect, 1)
 
-        self.renderer.draw_room_on_surface(self.preview_surface, self.current_room, self.calculate_preview_offset(PREVIEW_SIZE), 1.0, is_editor_view=False)
+        # The preview should always show everything
+        self.renderer.draw_room_on_surface(self.preview_surface, self.current_room, self.calculate_preview_offset(PREVIEW_SIZE), 1.0, is_editor_view=False, draw_decorations=True)
         self.screen.blit(self.preview_surface, self.preview_rect)
         pygame.draw.rect(self.screen, COLOR_BORDER, self.preview_rect, 1)
         title_surf = self.font_title.render("Room Preview", True, COLOR_TITLE_TEXT); title_rect = title_surf.get_rect(topright=(self.preview_rect.right, self.preview_rect.bottom + 5)); self.screen.blit(title_surf, title_rect)
@@ -201,7 +209,7 @@ class App:
         finally: pygame.quit()
     
     def create_new_room(self):
-        new_structure = {"name": "New Structure", "id": "new_structure", "dimensions": {"width": 0, "depth": 0, "origin_x": 0, "origin_y": 0}, "renderAnchor": {"x": 0, "y": 0}, "tiles": [], "walls": []}
+        new_structure = {"name": "New Structure", "id": "new_structure", "dimensions": {"width": 0, "depth": 0, "origin_x": 0, "origin_y": 0}, "renderAnchor": {"x": 0, "y": 0}, "tiles": [], "walkable": [], "walls": []}
         new_decoration_set = {"decoration_set_name": "New Decoration Set", "structure_id": "new_structure", "decorations": []}
         self.data_manager.current_decoration_set_path = None; self.data_manager.current_structure_path = None
         self.set_new_room_data(new_structure, new_decoration_set)
@@ -322,3 +330,8 @@ class App:
             p1, p2 = t_points[3], t_points[0]
             wall_points = [p1, p2, (p2[0], p2[1] - 12), (p1[0], p1[1] - 12)]
             pygame.draw.polygon(screen, COLOR_WALL, wall_points); pygame.draw.polygon(screen, COLOR_WALL_BORDER, wall_points, 1)
+        elif button_name == "mode_walkable":
+            icon_rect = pygame.Rect(0, 0, 24, 24)
+            icon_rect.center = (center_x, top_y + 4)
+            pygame.draw.rect(screen, COLOR_WALKABLE_OVERLAY, icon_rect, border_radius=3)
+            pygame.draw.rect(screen, (200, 255, 200), icon_rect, 1, border_radius=3)

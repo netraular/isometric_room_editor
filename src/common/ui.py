@@ -15,6 +15,54 @@ class Button:
     def check_hover(self, m_pos): self.is_hovered = self.rect.collidepoint(m_pos)
     def is_clicked(self, event): return self.is_hovered and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
 
+class ToggleSwitch:
+    def __init__(self, x, y, w, h, font, text, initial_state=False):
+        self.rect = pygame.Rect(x, y, w, h)
+        self.font = font
+        self.text = text
+        self.state = initial_state
+        self.is_hovered = False
+        self.knob_radius = (self.rect.height - 8) // 2
+
+    def check_hover(self, m_pos):
+        self.is_hovered = self.rect.collidepoint(m_pos)
+
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and self.is_hovered:
+            self.state = not self.state
+            return True # Indicates the state has changed
+        return False
+
+    def draw(self, screen):
+        # Draw the text label
+        text_surf = self.font.render(self.text, True, COLOR_TEXT)
+        text_rect = text_surf.get_rect(centery=self.rect.centery, left=self.rect.left)
+        screen.blit(text_surf, text_rect)
+
+        # Calculate position for the switch part
+        switch_w = self.knob_radius * 3.5
+        switch_h = self.rect.height - 4
+        switch_x = self.rect.right - switch_w
+        switch_y = self.rect.centery - switch_h / 2
+        switch_rect = pygame.Rect(switch_x, switch_y, switch_w, switch_h)
+        
+        # Reworked logic to handle hover state for both on and off states
+        track_color = COLOR_BUTTON
+        if self.state: # Is the toggle ON?
+            track_color = COLOR_TOGGLE_ON_HOVER if self.is_hovered else COLOR_TOGGLE_ON
+        else: # The toggle is OFF
+            track_color = COLOR_BUTTON_HOVER if self.is_hovered else COLOR_BUTTON
+        
+        pygame.draw.rect(screen, track_color, switch_rect, border_radius=int(switch_h / 2))
+
+        # Draw the knob
+        knob_x_off = switch_rect.left + self.knob_radius + 4
+        knob_x_on = switch_rect.right - self.knob_radius - 4
+        knob_x = knob_x_on if self.state else knob_x_off
+        knob_pos = (int(knob_x), self.rect.centery)
+        pygame.draw.circle(screen, COLOR_TEXT, knob_pos, self.knob_radius)
+        pygame.draw.circle(screen, COLOR_BORDER, knob_pos, self.knob_radius, 1)
+
 class TextInputBox:
     def __init__(self, x, y, w, h, font, text='', input_type='text'): 
         self.rect = pygame.Rect(x, y, w, h); self.color = COLOR_INPUT_INACTIVE; self.text = text; self.font = font; self.txt_surface = self.font.render(text, True, self.color); self.active = False; self.cursor_visible = True; self.cursor_timer = 0

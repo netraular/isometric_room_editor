@@ -9,6 +9,7 @@ class Room:
         
         self.tiles = {}
         self.walls = set()
+        self.walkable_map = {}
         self.decorations = []
         self.occupied_tiles = set()
         
@@ -17,6 +18,7 @@ class Room:
     def populate_internal_data(self):
         """Populates internal dictionaries and sets from JSON data."""
         self.tiles.clear(); self.walls.clear(); self.decorations.clear(); self.occupied_tiles.clear()
+        self.walkable_map.clear()
         
         dims = self.structure_data.get('dimensions', {})
         ox, oy = dims.get('origin_x', 0), dims.get('origin_y', 0)
@@ -26,6 +28,15 @@ class Room:
                 if char_val != '0':
                     self.tiles[(x + ox, y + oy)] = int(char_val)
         
+        # Load walkable data, compatible with files that don't have it
+        for y, row in enumerate(self.structure_data.get('walkable', [])):
+            for x, char_val in enumerate(row):
+                if char_val in ('0', '1'):
+                    grid_pos = (x + ox, y + oy)
+                    # Only store walkable status for existing tiles
+                    if grid_pos in self.tiles:
+                        self.walkable_map[grid_pos] = int(char_val)
+
         for wall_data in self.structure_data.get('walls', []):
             self.walls.add((tuple(wall_data['grid_pos']), wall_data['edge']))
             
@@ -81,7 +92,7 @@ class Room:
         return center_wx + TILE_WIDTH_HALF, center_wy + TILE_HEIGHT_HALF
 
     def update_structure_data_from_internal(self):
-        """Updates the structure_data dictionary from the internal state (tiles, walls)."""
+        """Updates the structure_data dictionary from the internal state (tiles, walls, walkable)."""
         if not self.tiles:
             min_x, min_y, max_x, max_y = 0, 0, 0, 0
         else:
@@ -93,11 +104,17 @@ class Room:
         new_w = max_x - min_x + 1 if self.tiles else 0
         new_d = max_y - min_y + 1 if self.tiles else 0
         new_grid = [['0'] * new_w for _ in range(new_d)]
+        new_walkable_grid = [['x'] * new_w for _ in range(new_d)] # 'x' for non-tile area
+        
         for (gx, gy), tile_type in self.tiles.items():
             new_grid[gy - min_y][gx - min_x] = str(tile_type)
+            # Default to 0 (non-walkable) if not specified for a tile
+            walkable_status = self.walkable_map.get((gx, gy), 0)
+            new_walkable_grid[gy - min_y][gx - min_x] = str(walkable_status)
         
         self.structure_data['dimensions'] = {'width': new_w, 'depth': new_d, 'origin_x': min_x, 'origin_y': min_y}
         self.structure_data['tiles'] = ["".join(row) for row in new_grid]
+        self.structure_data['walkable'] = ["".join(row) for row in new_walkable_grid]
         self.structure_data['walls'] = [{"grid_pos": list(pos), "edge": edge} for pos, edge in sorted(list(self.walls))]
     
     def update_decoration_set_data_from_internal(self):

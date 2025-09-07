@@ -8,7 +8,7 @@ class RoomRenderer:
     def __init__(self, data_manager):
         self.data_manager = data_manager
 
-    def draw_room_on_surface(self, surface, room, camera_offset, zoom=1.0, is_editor_view=True):
+    def draw_room_on_surface(self, surface, room, camera_offset, zoom=1.0, is_editor_view=True, draw_walkable_overlay=False, draw_decorations=True):
         surface.fill(COLOR_EDITOR_BG if is_editor_view else COLOR_PREVIEW_BG)
         if is_editor_view: self._draw_iso_grid_on_surface(surface, surface.get_rect(), camera_offset, zoom)
         if not room: return
@@ -19,13 +19,31 @@ class RoomRenderer:
         for gx, gy in sorted_tiles:
             screen_pos = grid_to_screen(gx, gy, camera_offset, zoom)
             self._draw_tile_shape(surface, screen_pos, room.tiles[(gx, gy)], COLOR_TILE, COLOR_TILE_BORDER, zoom)
+
+        if is_editor_view and draw_walkable_overlay:
+            overlay_surface = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+            for (gx, gy), tile_type in room.tiles.items():
+                is_walkable = room.walkable_map.get((gx, gy), 0)
+                color = COLOR_WALKABLE_OVERLAY if is_walkable else COLOR_NON_WALKABLE_OVERLAY
+                screen_pos = grid_to_screen(gx, gy, camera_offset, zoom)
+                
+                p = self._get_tile_points(screen_pos, zoom)
+                points_map = { TILE_TYPE_FULL: [p['top'], p['right'], p['bottom'], p['left']], TILE_TYPE_CORNER_NO_TL: [p['top'], p['right'], p['bottom']], TILE_TYPE_CORNER_NO_TR: [p['top'], p['bottom'], p['left']], TILE_TYPE_CORNER_NO_BR: [p['top'], p['right'], p['left']], TILE_TYPE_CORNER_NO_BL: [p['right'], p['bottom'], p['left']] }
+                points = points_map.get(tile_type)
+                if points:
+                    pygame.draw.polygon(overlay_surface, color, points)
+            surface.blit(overlay_surface, (0, 0))
+
         for gx, gy in sorted_tiles:
             for pos, edge in room.walls:
                 if pos == (gx, gy):
                     screen_pos = grid_to_screen(gx, gy, camera_offset, zoom)
                     self._draw_wall(surface, screen_pos, edge, zoom)
-        for deco in room.get_decorations_sorted_for_render():
-            self._draw_decoration(surface, deco, camera_offset, zoom)
+        
+        if draw_decorations:
+            for deco in room.get_decorations_sorted_for_render():
+                self._draw_decoration(surface, deco, camera_offset, zoom)
+
         if is_editor_view:
             anchor_world_x, anchor_world_y = room.structure_data["renderAnchor"]["x"], room.structure_data["renderAnchor"]["y"]
             anchor_pos = (anchor_world_x * zoom + camera_offset[0], anchor_world_y * zoom + camera_offset[1])

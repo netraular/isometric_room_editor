@@ -3,7 +3,7 @@
 import pygame
 import math
 from common.constants import *
-from common.ui import Button, TextInputBox
+from common.ui import Button, ToggleSwitch
 from common.utils import grid_to_screen, screen_to_grid
 
 class StructureEditor:
@@ -13,12 +13,35 @@ class StructureEditor:
         self.edit_mode = MODE_TILES; self.is_painting = False; self.is_erasing = False
         self.hover_grid_pos = None; self.hover_wall_edge = None
         self.buttons = {}
+        self.show_walkable_overlay = True
 
     def setup_ui(self):
-        center_btn_y = self.app.anchor_offset_input_x.rect.bottom + 20; margin = 15
-        self.buttons = {"center_anchor": Button(self.app.right_panel_rect.centerx - 60, center_btn_y, 120, 22, "Center Anchor", self.font_ui)}
+        margin = 15
+        center_btn_y = self.app.anchor_offset_input_x.rect.bottom + 20
+        self.buttons["center_anchor"] = Button(self.app.right_panel_rect.centerx - 60, center_btn_y, 120, 22, "Center Anchor", self.font_ui)
+        
         mode_btn_y = self.buttons["center_anchor"].rect.bottom + 20
-        self.buttons.update({"mode_tile": Button(self.app.right_panel_rect.left + margin, mode_btn_y, 100, 55, "", self.font_ui), "mode_wall": Button(self.app.right_panel_rect.right - 100 - margin, mode_btn_y, 100, 55, "", self.font_ui)})
+        usable_width = self.app.right_panel_rect.width - (margin * 2)
+        btn_padding = 8
+        btn_width = (usable_width - (btn_padding * 2)) // 3
+        
+        x1 = self.app.right_panel_rect.left + margin
+        x2 = x1 + btn_width + btn_padding
+        x3 = x2 + btn_width + btn_padding
+
+        self.buttons.update({
+            "mode_tile": Button(x1, mode_btn_y, btn_width, 55, "", self.font_ui), 
+            "mode_wall": Button(x2, mode_btn_y, btn_width, 55, "", self.font_ui),
+            "mode_walkable": Button(x3, mode_btn_y, btn_width, 55, "", self.font_ui)
+        })
+
+        toggle_y = self.buttons["mode_tile"].rect.bottom + 15
+        toggle_width = usable_width
+        self.buttons["toggle_walkable_view"] = ToggleSwitch(
+            self.app.right_panel_rect.left + margin, toggle_y, 
+            toggle_width, 28, self.font_ui, 
+            "Show Walkable Overlay", initial_state=self.show_walkable_overlay
+        )
     
     def handle_events(self, event, mouse_pos, local_mouse_pos, keys):
         shift = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]; alt = keys[pygame.K_LALT] or keys[pygame.K_RALT]
@@ -26,11 +49,16 @@ class StructureEditor:
             
         if self.buttons['mode_tile'].is_clicked(event): self.edit_mode = MODE_TILES
         elif self.buttons['mode_wall'].is_clicked(event): self.edit_mode = MODE_WALLS
+        elif self.buttons['mode_walkable'].is_clicked(event): self.edit_mode = MODE_WALKABLE
         elif self.buttons['center_anchor'].is_clicked(event) and self.app.current_room:
             center_wx, center_wy = self.app.current_room.calculate_center_world_coords()
             self.app.current_room.structure_data['renderAnchor']['x'] = center_wx
             self.app.current_room.structure_data['renderAnchor']['y'] = center_wy
             self.app.update_anchor_offset_inputs()
+
+        # Handle the new toggle switch
+        if self.buttons['toggle_walkable_view'].handle_event(event):
+            self.show_walkable_overlay = self.buttons['toggle_walkable_view'].state
 
         self.hover_grid_pos = None; self.hover_wall_edge = None
         if self.app.editor_rect.collidepoint(mouse_pos) and not self.app.camera.is_panning:
@@ -42,10 +70,12 @@ class StructureEditor:
                 wall_tuple = (self.hover_wall_edge[0], self.hover_wall_edge[1])
                 if wall_tuple in self.app.current_room.walls: self.app.current_room.walls.remove(wall_tuple)
                 else: self.app.current_room.walls.add(wall_tuple)
+            elif self.edit_mode == MODE_WALKABLE and event.button == 1 and self.hover_grid_pos in self.app.current_room.tiles:
+                current_status = self.app.current_room.walkable_map.get(self.hover_grid_pos, 0) # Default to 0 (non-walkable)
+                self.app.current_room.walkable_map[self.hover_grid_pos] = 1 - current_status
             elif self.edit_mode == MODE_TILES:
                 if event.button == 1:
                     if shift:
-                        # Convert screen mouse pos to world pos to set the anchor
                         w_mouse_x = (local_mouse_pos[0] - self.app.camera.offset[0]) / self.app.camera.zoom
                         w_mouse_y = (local_mouse_pos[1] - self.app.camera.offset[1]) / self.app.camera.zoom
                         self.app.current_room.structure_data["renderAnchor"]["x"], self.app.current_room.structure_data["renderAnchor"]["y"] = w_mouse_x, w_mouse_y
@@ -54,17 +84,25 @@ class StructureEditor:
                         self.app.current_room.tiles[self.hover_grid_pos] = TILE_TYPES[(TILE_TYPES.index(self.app.current_room.tiles.get(self.hover_grid_pos, TILE_TYPE_FULL)) + 1) % len(TILE_TYPES)]
                         self.app.update_anchor_offset_inputs()
                     else:
-                        self.is_painting = True; self.app.current_room.tiles[self.hover_grid_pos] = TILE_TYPE_FULL; self.app.update_anchor_offset_inputs()
+                        self.is_painting = True
+                        self.app.current_room.tiles[self.hover_grid_pos] = TILE_TYPE_FULL
+                        if self.hover_grid_pos not in self.app.current_room.walkable_map:
+                            self.app.current_room.walkable_map[self.hover_grid_pos] = 0
+                        self.app.update_anchor_offset_inputs()
                 elif event.button == 3: self.is_erasing = True; self.delete_tile(self.hover_grid_pos)
         
         if event.type == pygame.MOUSEBUTTONUP: self.is_painting = False; self.is_erasing = False
         if event.type == pygame.MOUSEMOTION:
              if self.edit_mode == MODE_TILES and self.hover_grid_pos and not shift and not alt and self.app.current_room:
-                if self.is_painting: self.app.current_room.tiles[self.hover_grid_pos] = TILE_TYPE_FULL; self.app.update_anchor_offset_inputs()
+                if self.is_painting: 
+                    self.app.current_room.tiles[self.hover_grid_pos] = TILE_TYPE_FULL
+                    if self.hover_grid_pos not in self.app.current_room.walkable_map:
+                        self.app.current_room.walkable_map[self.hover_grid_pos] = 0
+                    self.app.update_anchor_offset_inputs()
                 elif self.is_erasing: self.delete_tile(self.hover_grid_pos)
 
     def draw_on_editor(self, surface):
-        if self.edit_mode == MODE_TILES and self.hover_grid_pos:
+        if (self.edit_mode == MODE_TILES or self.edit_mode == MODE_WALKABLE) and self.hover_grid_pos:
             hover_screen_pos = grid_to_screen(*self.hover_grid_pos, self.app.camera.offset, self.app.camera.zoom)
             p = self.app.renderer._get_tile_points(hover_screen_pos, self.app.camera.zoom)
             pygame.draw.polygon(surface, COLOR_HOVER_BORDER, [p['top'], p['right'], p['bottom'], p['left']], 3)
@@ -78,13 +116,27 @@ class StructureEditor:
 
     def draw_ui_on_panel(self, screen):
         for name, btn in self.buttons.items():
-            is_active = (name == 'mode_tile' and self.edit_mode == MODE_TILES) or (name == 'mode_wall' and self.edit_mode == MODE_WALLS)
-            btn.draw(screen, is_active)
-            if name in ['mode_tile', 'mode_wall']:
-                self.app.draw_mode_button_icon(screen, name, btn.rect); text_str = "Tiles" if name == 'mode_tile' else "Walls"
-                ts = self.font_ui.render(text_str, True, COLOR_TEXT); tr = ts.get_rect(centerx=btn.rect.centerx, bottom=btn.rect.bottom - 8); screen.blit(ts, tr)
+            if name in ['mode_tile', 'mode_wall', 'mode_walkable']:
+                is_active = (name == 'mode_tile' and self.edit_mode == MODE_TILES) or \
+                            (name == 'mode_wall' and self.edit_mode == MODE_WALLS) or \
+                            (name == 'mode_walkable' and self.edit_mode == MODE_WALKABLE)
+                btn.draw(screen, is_active)
+                self.app.draw_mode_button_icon(screen, name, btn.rect)
+                text_map = {'mode_tile': 'Tiles', 'mode_wall': 'Walls', 'mode_walkable': 'Walkable'}
+                ts = self.font_ui.render(text_map[name], True, COLOR_TEXT)
+                tr = ts.get_rect(centerx=btn.rect.centerx, bottom=btn.rect.bottom - 8)
+                screen.blit(ts, tr)
+            else:
+                 btn.draw(screen)
 
-    def get_info_lines(self): return ["[Click] Paint Tile", "[Drag] Paint/Erase", "[Alt+Click] Cycle Corner"] if self.edit_mode == MODE_TILES else ["[Click Edge] Toggle Wall"]
+    def get_info_lines(self):
+        if self.edit_mode == MODE_TILES:
+            return ["[Click] Paint Tile", "[Drag] Paint/Erase", "[Alt+Click] Cycle Corner"]
+        elif self.edit_mode == MODE_WALLS:
+            return ["[Click Edge] Toggle Wall"]
+        elif self.edit_mode == MODE_WALKABLE:
+            return ["[Click Tile] Toggle Walkable"]
+        return []
     
     def point_to_line_segment_dist(self, p, a, b):
         px, py = p; ax, ay = a; bx, by = b; line_mag_sq = (bx - ax)**2 + (by - ay)**2
@@ -109,5 +161,6 @@ class StructureEditor:
     def delete_tile(self, grid_pos):
         if not self.app.current_room or not grid_pos or grid_pos not in self.app.current_room.tiles: return
         self.app.current_room.tiles.pop(grid_pos, None)
+        self.app.current_room.walkable_map.pop(grid_pos, None)
         self.app.current_room.walls = {wall for wall in self.app.current_room.walls if wall[0] != grid_pos}
         self.app.update_anchor_offset_inputs()
