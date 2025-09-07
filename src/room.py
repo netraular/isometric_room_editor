@@ -15,7 +15,7 @@ class Room:
         self.populate_internal_data()
 
     def populate_internal_data(self):
-        """Rellena los diccionarios y sets internos a partir de los datos JSON."""
+        """Populates internal dictionaries and sets from JSON data."""
         self.tiles.clear(); self.walls.clear(); self.decorations.clear(); self.occupied_tiles.clear()
         
         dims = self.structure_data.get('dimensions', {})
@@ -33,39 +33,37 @@ class Room:
         for deco in self.decorations:
             self.occupied_tiles.add(tuple(deco.get("grid_pos")))
 
-    # --- MODIFIED: Renamed parameter to variant_id ---
     def add_decoration(self, base_id, variant_id, grid_pos, rotation):
-        """Añade una decoración si la casilla no está ocupada."""
+        """Adds a decoration if the tile is not occupied."""
         grid_pos_tuple = tuple(grid_pos)
         if grid_pos_tuple in self.occupied_tiles:
-            print(f"[AVISO] No se puede colocar: la casilla {grid_pos_tuple} ya está ocupada.")
+            print(f"[WARN] Cannot place item: tile {grid_pos_tuple} is already occupied.")
             return False
         
-        # --- MODIFIED: Use variant_id in the dictionary key ---
         self.decorations.append({
             "base_id": base_id, "variant_id": variant_id,
             "grid_pos": list(grid_pos), "rotation": rotation
         })
         self.occupied_tiles.add(grid_pos_tuple)
-        print(f"[LOG] Colocando '{base_id}' en {grid_pos_tuple} con rotación {rotation}")
+        print(f"[LOG] Placing '{base_id}' at {grid_pos_tuple} with rotation {rotation}")
         return True
 
     def remove_decoration_at(self, grid_pos):
-        """Elimina la decoración que se encuentre en la posición de rejilla dada."""
+        """Removes the decoration at the given grid position."""
         for deco in reversed(self.decorations):
             if tuple(deco.get("grid_pos")) == grid_pos:
                 self.decorations.remove(deco)
                 self.occupied_tiles.remove(grid_pos)
-                print(f"[LOG] Objeto '{deco.get('base_id')}' eliminado de la posición {grid_pos}")
+                print(f"[LOG] Item '{deco.get('base_id')}' removed from position {grid_pos}")
                 return True
         return False
 
     def get_decorations_sorted_for_render(self):
-        """Devuelve las decoraciones ordenadas por profundidad para un renderizado correcto."""
+        """Returns decorations sorted by depth for correct rendering."""
         return sorted(self.decorations, key=lambda d: (d['grid_pos'][1] + d['grid_pos'][0], d['grid_pos'][1] - d['grid_pos'][0]))
 
     def calculate_center_world_coords(self):
-        """Calcula el centro geométrico de la habitación en coordenadas del mundo."""
+        """Calculates the geometric center of the room in world coordinates."""
         if not self.tiles: 
             # Return world coords for grid(0,0), adjusted to tile center
             return (TILE_WIDTH_HALF, TILE_HEIGHT_HALF)
@@ -83,7 +81,7 @@ class Room:
         return center_wx + TILE_WIDTH_HALF, center_wy + TILE_HEIGHT_HALF
 
     def update_structure_data_from_internal(self):
-        """Actualiza el diccionario structure_data a partir del estado interno (tiles, walls)."""
+        """Updates the structure_data dictionary from the internal state (tiles, walls)."""
         if not self.tiles:
             min_x, min_y, max_x, max_y = 0, 0, 0, 0
         else:
@@ -103,5 +101,5 @@ class Room:
         self.structure_data['walls'] = [{"grid_pos": list(pos), "edge": edge} for pos, edge in sorted(list(self.walls))]
     
     def update_decoration_set_data_from_internal(self):
-        """Actualiza el diccionario decoration_set_data a partir del estado interno."""
+        """Updates the decoration_set_data dictionary from the internal state."""
         self.decoration_set_data["decorations"] = self.decorations

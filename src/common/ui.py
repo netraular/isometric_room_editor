@@ -16,10 +16,9 @@ class Button:
     def is_clicked(self, event): return self.is_hovered and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
 
 class TextInputBox:
-    # --- LÍNEA MODIFICADA: Se añade 'input_type' al constructor ---
     def __init__(self, x, y, w, h, font, text='', input_type='text'): 
         self.rect = pygame.Rect(x, y, w, h); self.color = COLOR_INPUT_INACTIVE; self.text = text; self.font = font; self.txt_surface = self.font.render(text, True, self.color); self.active = False; self.cursor_visible = True; self.cursor_timer = 0
-        self.input_type = input_type # Guardamos el tipo de input
+        self.input_type = input_type
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN: 
@@ -30,17 +29,15 @@ class TextInputBox:
                 return self.text
             elif event.key == pygame.K_BACKSPACE: 
                 self.text = self.text[:-1]
-            # --- BLOQUE MODIFICADO: Lógica condicional para el tipo de entrada ---
             else:
                 if self.input_type == 'numeric':
-                    # Lógica original solo para números
+                    # Original logic for numbers only
                     if event.unicode.isdigit() or (event.unicode == '.' and '.' not in self.text) or (event.unicode == '-' and not self.text): 
                         self.text += event.unicode
-                else: # 'text' (o cualquier otro valor)
-                    # Lógica general que acepta casi cualquier carácter imprimible
+                else: # 'text' (or any other value)
+                    # General logic that accepts almost any printable character
                     if event.unicode:
                          self.text += event.unicode
-            # --- FIN DEL BLOQUE MODIFICADO ---
             self.txt_surface = self.font.render(self.text, True, COLOR_TEXT)
         return None
 

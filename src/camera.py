@@ -9,7 +9,7 @@ class Camera:
         self.is_panning = False
         self.pan_start_pos = (0, 0)
         
-        # --- MODIFIED: Switched to snapped zoom levels for pixel-perfect rendering ---
+        # Switched to snapped zoom levels for pixel-perfect rendering
         self.zoom_levels = [0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0]
         try:
             # Start at 100% zoom
@@ -21,13 +21,13 @@ class Camera:
         self.zoom = self.zoom_levels[self.current_zoom_index]
 
     def handle_event(self, event, mouse_pos):
-        """Procesa eventos de Pygame para el control de la cámara."""
+        """Processes Pygame events for camera control."""
         if self.editor_rect.collidepoint(mouse_pos):
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 2:
                 self.is_panning = True
                 self.pan_start_pos = event.pos
             
-            # --- MODIFIED: Logic for snapped zoom ---
+            # Logic for snapped zoom
             if event.type == pygame.MOUSEWHEEL:
                 mods = pygame.key.get_mods()
                 if mods & pygame.KMOD_CTRL:
@@ -57,9 +57,9 @@ class Camera:
             self.pan_start_pos = event.pos
     
     def center_on_coords(self, world_coords):
-        """Centra la cámara en un punto específico del mundo."""
+        """Centers the camera on a specific world point."""
         editor_center = (self.editor_rect.w / 2, self.editor_rect.h / 2)
-        # --- MODIFIED: Account for zoom when centering ---
+        # Account for zoom when centering
         self.offset = [
             editor_center[0] - (world_coords[0] * self.zoom),
             editor_center[1] - (world_coords[1] * self.zoom)

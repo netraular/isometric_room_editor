@@ -21,7 +21,7 @@ class DataManager:
             self.root.withdraw()
 
     def _export_used_assets(self, decoration_set_data, export_dir):
-        """Copia las carpetas de assets de los furnis a un directorio de destino."""
+        """Copies the asset folders of the furniture to a destination directory."""
         if not decoration_set_data.get("decorations"): return 0
         
         used_base_ids = {deco['base_id'] for deco in decoration_set_data["decorations"]}
@@ -42,11 +42,10 @@ class DataManager:
                 print(f"Warning: Source asset directory not found for '{base_id}' at {source_path}")
         return exported_count
 
-    # --- NUEVA FUNCIÓN PRINCIPAL DE GUARDADO ---
     def save_project_to_folder(self, structure_data, decoration_set_data):
         """
-        Pide al usuario una carpeta y guarda la estructura, las decoraciones y
-        los assets de los furnis utilizados en ella.
+        Asks the user for a folder and saves the structure, decorations, and
+        assets of the used furniture in it.
         """
         self._init_tk_root()
         initial_dir = os.path.join(self.project_root, "rooms")
@@ -58,10 +57,10 @@ class DataManager:
         self.root.update()
 
         if not target_folder:
-            return False, None # El usuario canceló
+            return False, None # User cancelled
 
         try:
-            # 1. Preparar nombres de archivo y rutas
+            # 1. Prepare filenames and paths
             base_name = os.path.basename(target_folder)
             structure_filename = f"{base_name}_structure.json"
             decorations_filename = f"{base_name}_decorations.json"
@@ -70,28 +69,28 @@ class DataManager:
             structure_filepath = os.path.join(target_folder, structure_filename)
             decorations_filepath = os.path.join(target_folder, decorations_filename)
 
-            # 2. Actualizar IDs internos para que coincidan
+            # 2. Update internal IDs to match
             structure_data['id'] = base_name
             decoration_set_data['structure_id'] = base_name
             decoration_set_data['decoration_set_name'] = f"{base_name.replace('_', ' ').title()} Decorations"
 
-            # 3. Guardar el archivo de estructura
+            # 3. Save the structure file
             with open(structure_filepath, 'w') as f:
                 json.dump(structure_data, f, indent=2)
 
-            # 4. Guardar el archivo de decoraciones
+            # 4. Save the decorations file
             with open(decorations_filepath, 'w') as f:
                 json.dump(decoration_set_data, f, indent=2)
 
-            # 5. Exportar los assets
+            # 5. Export the assets
             os.makedirs(furnis_folder_path, exist_ok=True)
             num_exported = self._export_used_assets(decoration_set_data, furnis_folder_path)
 
-            # 6. Actualizar las rutas actuales de la aplicación
+            # 6. Update the current paths of the application
             self.current_structure_path = structure_filepath
             self.current_decoration_set_path = decorations_filepath
 
-            # 7. Mostrar mensaje de éxito
+            # 7. Show success message
             messagebox.showinfo(
                 "Save Complete",
                 f"Project '{base_name}' saved successfully!\n\n"
@@ -105,7 +104,6 @@ class DataManager:
             messagebox.showerror("Save Error", f"An error occurred while saving the project: {e}")
             return False, None
 
-    # --- Las funciones de carga no cambian ---
     def load_catalog(self):
         catalog_path = os.path.join(self.project_root, "assets", "catalog.json")
         if not os.path.exists(catalog_path):
@@ -165,54 +163,85 @@ class DataManager:
 
     def load_decoration_set_and_structure(self, initial_dir=None):
         self._init_tk_root()
-        if initial_dir is None: initial_dir = os.path.join(self.project_root, "rooms", "decoration_sets")
+        if initial_dir is None:
+            initial_dir = os.path.join(self.project_root, "rooms")
         os.makedirs(initial_dir, exist_ok=True)
-        fp = filedialog.askopenfilename(parent=self.root, initialdir=initial_dir, title="Load Decoration Set or Structure", filetypes=(("JSON files", "*.json"),))
+        
+        fp = filedialog.askopenfilename(
+            parent=self.root,
+            initialdir=initial_dir,
+            title="Load Room Project File",
+            filetypes=(("JSON files", "*.json"), ("All files", "*.*"))
+        )
         self.root.update()
         if not fp: return None, None
+        
         try:
-            with open(fp, 'r') as f: file_data = json.load(f)
+            with open(fp, 'r', encoding='utf-8') as f:
+                file_data = json.load(f)
 
+            # Case 1: User selected a decoration set file
             if "structure_id" in file_data:
+                print("Loading project from decoration set file...")
                 decoration_set_data = file_data
                 structure_id = decoration_set_data.get("structure_id")
-                if not structure_id: raise ValueError("Decoration Set file has an empty 'structure_id'.")
+                if not structure_id:
+                    raise ValueError("Decoration set file has an empty 'structure_id'.")
                 
-                # Intenta encontrar la estructura relativa a la decoración, si no, busca en la carpeta de estructuras
+                # Look for the structure file in the same folder (primary method)
                 structure_fp_relative = os.path.join(os.path.dirname(fp), f"{structure_id}_structure.json")
+                # Fallback for old, non-project structure files
                 structure_fp_standard = os.path.join(self.project_root, "rooms", "structures", f"{structure_id}.json")
 
                 structure_fp = None
                 if os.path.exists(structure_fp_relative):
                     structure_fp = structure_fp_relative
+                    print(f"Found associated structure file: {structure_fp}")
                 elif os.path.exists(structure_fp_standard):
                     structure_fp = structure_fp_standard
+                    print(f"Found associated structure file (legacy path): {structure_fp}")
 
                 if structure_fp:
-                    with open(structure_fp, 'r') as f: structure_data = json.load(f)
+                    with open(structure_fp, 'r', encoding='utf-8') as f:
+                        structure_data = json.load(f)
                     self.current_structure_path = structure_fp
                 else:
-                    print(f"!!! WARNING: Structure file for '{structure_id}' not found.")
-                    print("!!! Loading decorations with a default empty structure.")
-                    structure_data = {
-                        "name": "Missing Structure", "id": structure_id, 
-                        "dimensions": {"width": 0, "depth": 0, "origin_x": 0, "origin_y": 0}, 
-                        "renderAnchor": {"x": 0, "y": 0}, "tiles": [], "walls": []
-                    }
+                    messagebox.showwarning("Structure Not Found", f"Could not find the structure file for ID '{structure_id}'.\nLoading decorations with a default empty structure.")
+                    structure_data = {"name": "Missing Structure", "id": structure_id, "dimensions": {"width": 0, "depth": 0, "origin_x": 0, "origin_y": 0}, "renderAnchor": {"x": 0, "y": 0}, "tiles": [], "walls": []}
                     self.current_structure_path = None
                 
                 self.current_decoration_set_path = fp
                 return structure_data, decoration_set_data
 
+            # Case 2: User selected a structure file
             elif "tiles" in file_data and "dimensions" in file_data:
+                print("Loading project from structure file...")
                 structure_data = file_data
-                new_decoration_set = {"decoration_set_name": f"{structure_data.get('name', 'New')} Decoration Set", "structure_id": structure_data.get('id', 'unknown'), "decorations": []}
+                structure_id = structure_data.get('id', 'unknown')
+
+                # Look for the corresponding decoration set file in the same folder.
+                decorations_fp_relative = os.path.join(os.path.dirname(fp), f"{structure_id}_decorations.json")
+                
+                if os.path.exists(decorations_fp_relative):
+                    print(f"Found associated decorations file: {decorations_fp_relative}")
+                    with open(decorations_fp_relative, 'r', encoding='utf-8') as f:
+                        decoration_set_data = json.load(f)
+                    self.current_decoration_set_path = decorations_fp_relative
+                else:
+                    # Fallback: create a new, empty decoration set if none is found.
+                    print("No associated decorations file found. Creating a new empty set.")
+                    decoration_set_data = {"decoration_set_name": f"{structure_data.get('name', 'New')} Decoration Set", "structure_id": structure_id, "decorations": []}
+                    self.current_decoration_set_path = None
+                
                 self.current_structure_path = fp
-                self.current_decoration_set_path = None
-                return structure_data, new_decoration_set
+                return structure_data, decoration_set_data
+            
+            # Case 3: Invalid file
             else:
-                print("Error: Selected JSON is not a valid structure or decoration set file.")
+                messagebox.showerror("Invalid File", "The selected JSON file is not a valid structure or decoration set file.")
                 return None, None
+                
         except Exception as e:
-            print(f"Error loading room: {e}")
+            messagebox.showerror("Load Error", f"An error occurred while loading the project: {e}")
+            print(f"Error loading project file: {e}")
             return None, None
