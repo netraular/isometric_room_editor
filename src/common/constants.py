@@ -64,7 +64,9 @@ MODE_WALKABLE = 2
 MODE_LAYERS = 3
 
 # --- Layer System ---
-# Order is important for rendering. Lower IDs are rendered first on a tile.
+# Defines the rendering order for decorations. Lower IDs are rendered first.
+# "Tile Layers" can be painted on the grid (Structure Editor) and saved in structure.json as a default.
+# "Decoration Layers" can be assigned to individual decoration items. All layers are valid as Decoration Layers.
 LAYER_WALL = 0
 LAYER_FLOOR = 1
 LAYER_BACKGROUND = 2
@@ -72,11 +74,21 @@ LAYER_MAIN = 3
 LAYER_FOREGROUND = 4
 
 LAYER_DATA = {
+    # Calculated dynamically based on wall positions. Cannot be painted as a Tile Layer.
     LAYER_WALL:       {"name": "Wall",       "char": "w", "color": (150, 100, 255, 77)},
-    LAYER_FLOOR:      {"name": "Floor",      "char": "f", "color": (255, 255, 100, 128)}, # 'f' is no longer painted, but used for decoration layer
+    
+    # Decoration-only layer (e.g., carpets). Cannot be painted as a Tile Layer, but can be assigned to decorations.
+    LAYER_FLOOR:      {"name": "Floor",      "char": "f", "color": (255, 255, 100, 128)},
+    
+    # Standard Tile & Decoration layer for items behind the Main layer.
     LAYER_BACKGROUND: {"name": "Background", "char": "b", "color": (100, 150, 255, 128)},
+    
+    # Standard Tile & Decoration layer. Default for most furniture and characters.
     LAYER_MAIN:       {"name": "Main",       "char": "m", "color": (100, 255, 150, 128)},
-    LAYER_FOREGROUND: {"name": "Foreground", "char": "f", "color": (255, 150, 100, 128)}, # Changed from 'g' to 'f'
+    
+    # Standard Tile & Decoration layer for items in front of the Main layer.
+    # Note: 'f' char is reused, but in structure.json it always means Foreground, as Floor layer is never saved.
+    LAYER_FOREGROUND: {"name": "Foreground", "char": "f", "color": (255, 150, 100, 128)},
 }
 
 LAYER_CHARS_TO_ID = {data["char"]: layer_id for layer_id, data in LAYER_DATA.items()}
