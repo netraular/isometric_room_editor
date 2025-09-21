@@ -140,3 +140,5 @@ When you save a room, it creates a `.json` file with the following structure:
     - `'1'`: Full tile.
     - `'2'`-`'5'`: Different corner tile types.
 - **`walls`**: An array of wall objects. Each object specifies a `grid_pos` (the tile coordinate the wall is attached to) and an `edge` (which side of the tile it's on, e.g., "ne", "nw", "diag_nw_se").
+
+:)
