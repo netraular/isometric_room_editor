@@ -1,7 +1,7 @@
 # src/common/constants.py
 
 # --- Window and Layout ---
-INITIAL_WIN_WIDTH, INITIAL_WIN_HEIGHT = 1280, 720
+INITIAL_WIN_WIDTH, INITIAL_WIN_HEIGHT = 1500, 900
 TOP_BAR_HEIGHT = 40
 TOOLBAR_HEIGHT = 0 # Second toolbar removed
 RIGHT_PANEL_WIDTH = 280

@@ -62,7 +62,7 @@ class App:
         self.file_buttons = {"screenshot": btn_screenshot, "new": btn_new, "load": btn_load, "save_all": btn_save_all}
 
         self.preview_rect = pygame.Rect(0, 0, PREVIEW_SIZE[0], PREVIEW_SIZE[1]); self.preview_rect.topright = (self.editor_rect.right - margin, self.editor_rect.top + margin); self.preview_surface = pygame.Surface(PREVIEW_SIZE)
-        self.item_preview_rect = pygame.Rect(0, 0, 180, 180); self.item_preview_rect.topright = (self.preview_rect.right, self.preview_rect.bottom + 40); self.item_preview_surface = pygame.Surface((180,180), pygame.SRCALPHA)
+        self.item_preview_rect = pygame.Rect(0, 0, PREVIEW_SIZE[0], PREVIEW_SIZE[1]); self.item_preview_rect.topright = (self.preview_rect.right, self.preview_rect.bottom + 40); self.item_preview_surface = pygame.Surface(PREVIEW_SIZE, pygame.SRCALPHA)
 
         input_y = self.right_panel_rect.y + margin + 20
         self.anchor_offset_input_x = TextInputBox(self.right_panel_rect.left + margin, input_y, 100, 25, self.font_ui, input_type='numeric')
@@ -167,7 +167,8 @@ class App:
 
     def draw_item_preview(self):
         self.item_preview_surface.fill(COLOR_TILE)
-        preview_anchor_pos = (self.item_preview_rect.w / 2, self.item_preview_rect.h / 2)
+        # The anchor position is shifted down by two tile steps to better center taller items.
+        preview_anchor_pos = (self.item_preview_rect.w / 2, self.item_preview_rect.h / 2 + TILE_HEIGHT)
         self.renderer._draw_iso_grid_on_surface(self.item_preview_surface, self.item_preview_surface.get_rect(), preview_anchor_pos)
         item_image, item_offset = self.decoration_editor.get_selected_item_image()
         if item_image and item_offset:
